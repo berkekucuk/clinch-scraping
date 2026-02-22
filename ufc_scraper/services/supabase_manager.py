@@ -1,6 +1,6 @@
 import os
 import logging
-from supabase import AsyncClient
+from supabase import AsyncClient, create_client
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -63,23 +63,25 @@ class SupabaseManager:
             raise e
 
 
-    async def get_live_event(self):
+    def get_event_status(self, event_id: str) -> str:
+        if not self.url or not self.key:
+            self.logger.warning("Supabase credentials missing.")
+            return "live"
+
         try:
-            response = await self.client.table("events")\
-                .select("event_id, event_url")\
-                .eq("status", "live")\
-                .limit(1)\
+            client = create_client(self.url, self.key)
+            response = client.table("events") \
+                .select("status") \
+                .eq("event_id", event_id) \
+                .limit(1) \
                 .execute()
 
             if response.data:
-                return response.data[0]
-            else:
-                self.logger.info("No live event found.")
-                return None
-
+                return response.data[0].get("status", "live").lower()
         except Exception as e:
-            self.logger.error(f"Failed to get LIVE event: {e}")
-            return None
+            self.logger.error(f"Supabase status check failed: {e}")
+
+        return "live"
 
 
     async def load_fighter_cache(self):

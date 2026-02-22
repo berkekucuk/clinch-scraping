@@ -1,62 +1,64 @@
 import subprocess
 import logging
-import json
-import boto3
+from ufc_scraper.services.supabase_manager import SupabaseManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-lambda_client = boto3.client('lambda')
 
 def handler(event, context):
 
     if 'task' in event:
         task_type = event.get('task')
-        logger.info(f"[SCHEDULED] Task triggered: {task_type}")
+        logger.info(f"[TASK:{task_type}] Task triggered.")
 
         try:
-            if task_type == 'live':
-                subprocess.run(["scrapy", "crawl", "smart", "-a", "mode=live", "--loglevel", "INFO"], check=True)
-            elif task_type == 'upcoming':
-                subprocess.run(["scrapy", "crawl", "smart", "-a", "mode=upcoming", "--loglevel", "INFO"], check=True)
-            else:
-                return {"statusCode": 400, "body": "Undefined task"}
+            if task_type == 'upcoming':
+                logger.info(f"[TASK:{task_type}] Starting scraper...")
+                subprocess.run([
+                    "scrapy", "crawl", "smart",
+                    "-a", "mode=upcoming",
+                    "--loglevel", "INFO"
+                    ], check=True)
 
-            logger.info(f"Scraper finished for '{task_type}'. Triggering Sync Lambda...")
-            try:
-                lambda_client.invoke(
-                    FunctionName='SupabaseToDynamoSync',
-                    InvocationType='Event',
-                    Payload=json.dumps({'source': f'scraper_{task_type}'}).encode('utf-8')
-                )
-                logger.info("Sync Lambda successfully triggered (Scheduled).")
-            except Exception as e:
-                logger.error(f"Error triggering Sync Lambda: {str(e)}")
+                logger.info(f"[TASK:{task_type}] Scraper finished.")
+                return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
 
-            return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed and Sync triggered"}
+            elif task_type == 'step_function_loop':
+                event_url = event.get('event_url')
+                event_id = event.get('event_id')
 
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Scheduled spider failed: {str(e)}")
-            raise e
+                if not event_url or not event_id:
+                    return {"statusCode": 400, "body": "Missing event_id or event_url"}
 
-    elif 'body' in event:
-        try:
-            body = json.loads(event['body'])
+                logger.info(f"[TASK:{task_type}] Scraping single event: {event_id}")
 
-            table = body.get('table')
-            op_type = body.get('type')
-            record = body.get('record', {})
+                subprocess.run([
+                    "scrapy", "crawl", "smart",
+                    "-a", "mode=single",
+                    "-a", f"event_url={event_url}",
+                    "--loglevel", "INFO"
+                ], check=True)
 
-            if table == 'fighters' and op_type == 'INSERT':
+                logger.info(f"[TASK:{task_type}] Scraper finished for '{event_id}'.")
 
-                fighter_id = record.get('fighter_id')
-                profile_url = record.get('profile_url')
+                current_status = SupabaseManager().get_event_status(event_id)
 
-                if not profile_url:
-                     logger.warning(f"[WEBHOOK] Fighter {fighter_id} has no profile URL. Skipping.")
-                     return {"statusCode": 200, "body": "No URL, skipped"}
+                if current_status == "completed":
+                    logger.info(f"[TASK:{task_type}] Event {event_id} is COMPLETED.")
+                    return {"statusCode": 200, "step_status": "COMPLETED"}
+                else:
+                    logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS.")
+                    return {"statusCode": 200, "step_status": "IN_PROGRESS"}
 
-                logger.info(f"[WEBHOOK] Rescuing fighter: {fighter_id} from {profile_url}")
+            elif task_type == 'fighter_scrape':
+                fighter_id = event.get('fighter_id')
+                profile_url = event.get('profile_url')
+
+                if not profile_url or not fighter_id:
+                     logger.warning(f"[TASK:{task_type}] Missing profile_url or fighter_id. Skipping.")
+                     return {"statusCode": 400, "body": "Missing data"}
+
+                logger.info(f"[TASK:{task_type}] Scraping fighter: {fighter_id} from {profile_url}")
 
                 subprocess.run([
                     "scrapy", "crawl", "fighter",
@@ -65,31 +67,14 @@ def handler(event, context):
                     "--loglevel", "INFO"
                 ], check=True)
 
-                logger.info(f"Rescue scrape finished for fighter {fighter_id}. Triggering Sync Lambda...")
-                try:
-                    lambda_client.invoke(
-                        FunctionName='SupabaseToDynamoSync',
-                        InvocationType='Event',
-                        Payload=json.dumps({'source': f'webhook_rescue_{fighter_id}'}).encode('utf-8')
-                    )
-                    logger.info("Sync Lambda successfully triggered (Webhook).")
-                except Exception as e:
-                    logger.error(f"Error triggering Sync Lambda from Webhook: {str(e)}")
-
-                return {"statusCode": 200, "body": f"Rescue scrape finished for {fighter_id} and Sync triggered"}
+                logger.info(f"[TASK:{task_type}] Scrape finished for fighter {fighter_id}.")
+                return {"statusCode": 200, "body": f"Scrape finished for {fighter_id}"}
 
             else:
-                logger.info(f"[WEBHOOK] Ignored event: Table={table}, Type={op_type}")
-                return {"statusCode": 200, "body": "Ignored"}
+                return {"statusCode": 400, "body": "Undefined task"}
 
-        except json.JSONDecodeError:
-            logger.error("Failed to decode Webhook JSON body")
-            return {"statusCode": 400, "body": "Invalid JSON"}
         except subprocess.CalledProcessError as e:
-            logger.error(f"Rescue spider failed: {str(e)}")
-            raise e
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
+            logger.error(f"[TASK:{task_type}] Spider failed: {str(e)}")
             raise e
 
     else:

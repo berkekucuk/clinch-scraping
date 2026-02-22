@@ -12,7 +12,7 @@ class SmartSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super(SmartSpider, self).__init__(*args, **kwargs)
         self.supabase = SupabaseManager()
-        self.mode = kwargs.get('mode', 'upcoming')  # 'live', 'upcoming', or 'single'
+        self.mode = kwargs.get('mode', 'upcoming')  # 'upcoming' or 'single'
         self.event_url = kwargs.get('event_url')
 
 
@@ -31,24 +31,7 @@ class SmartSpider(scrapy.Spider):
             yield scrapy.Request(
                 url=self.event_url,
                 callback=EventPageParser.parse_card,
-                cb_kwargs={"event_id": event_id, "event_url": self.event_url}
-            )
-
-        elif self.mode == 'live':
-            live_event = await self.supabase.get_live_event()
-
-            if not live_event:
-                self.logger.info("[LIVE MODE] No live events found. Exiting.")
-                return
-
-            event_id = live_event.get("event_id")
-            event_url = live_event.get("event_url")
-
-            self.logger.info(f"[LIVE MODE] Scraping event: {event_id}")
-            yield scrapy.Request(
-                url=event_url,
-                callback=self.parse_live_event,
-                cb_kwargs={"event_id": event_id, "event_url": event_url}
+                cb_kwargs={"event_id": event_id, "event_url": self.event_url, "is_live_mode": True}
             )
 
         else:
@@ -58,12 +41,6 @@ class SmartSpider(scrapy.Spider):
                 url=url,
                 callback=self.parse_upcoming_events
                 )
-
-
-    def parse_live_event(self, response, event_id, event_url):
-
-        self.logger.debug(f"Parsing event status for {event_id}")
-        yield from EventPageParser.parse_card(response, event_id, event_url, is_live_mode=True)
 
 
     async def parse_upcoming_events(self, response):
