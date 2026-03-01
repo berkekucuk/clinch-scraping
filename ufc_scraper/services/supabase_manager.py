@@ -9,15 +9,15 @@ class SupabaseManager:
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        url = os.getenv("SUPABASE_PROD_URL")
-        key = os.getenv("SUPABASE_PROD_KEY")
+        self.url = os.getenv("SUPABASE_PROD_URL")
+        self.key = os.getenv("SUPABASE_PROD_KEY")
 
-        if not all([url, key]):
+        if not all([self.url, self.key]):
             self.logger.error("Supabase credentials are missing in .env")
             raise ValueError("Missing Supabase credentials")
 
         try:
-            self.client = AsyncClient(url, key)
+            self.client = AsyncClient(self.url, self.key)
             self.logger.info("Supabase client initialized (Async)")
         except Exception as e:
             self.logger.error(f"Failed to initialize Supabase client: {e}")
