@@ -1,4 +1,7 @@
+import os
 import scrapy
+from urllib.parse import urlencode
+from urllib.parse import urljoin
 from ..utils.url_parser import UrlParser
 from ..services.supabase_manager import SupabaseManager
 from ..parsers.event_page_parser import EventPageParser
@@ -7,13 +10,23 @@ from ..parsers.event_page_parser import EventPageParser
 class SmartSpider(scrapy.Spider):
 
     name = "smart"
-    allowed_domains = ["tapology.com"]
+    allowed_domains = ["tapology.com", "api.scraperapi.com"]
+
+    SCRAPER_API_KEY = os.getenv('SCRAPER_API_KEY')
 
     def __init__(self, *args, **kwargs):
         super(SmartSpider, self).__init__(*args, **kwargs)
         self.supabase = SupabaseManager()
-        self.mode = kwargs.get('mode', 'upcoming')  # 'upcoming' or 'single'
+        self.mode = kwargs.get('mode', 'upcoming')
         self.event_url = kwargs.get('event_url')
+
+
+    def get_scraperapi_url(self, target_url):
+        if not self.SCRAPER_API_KEY:
+            self.logger.error("API key for ScraperAPI not found! Please set the SCRAPER_API_KEY environment variable.")
+            return target_url
+        payload = {'api_key': self.SCRAPER_API_KEY, 'url': target_url}
+        return 'https://api.scraperapi.com/?' + urlencode(payload)
 
 
     async def start(self):
@@ -29,7 +42,7 @@ class SmartSpider(scrapy.Spider):
 
             self.logger.info(f"[SINGLE MODE] Scraping single event: {event_id}")
             yield scrapy.Request(
-                url=self.event_url,
+                url=self.get_scraperapi_url(self.event_url),
                 callback=EventPageParser.parse_card,
                 cb_kwargs={"event_id": event_id, "event_url": self.event_url, "is_live_mode": True}
             )
@@ -38,7 +51,7 @@ class SmartSpider(scrapy.Spider):
             self.logger.info("[UPCOMING MODE] Starting event pagination scrape...")
             url = "https://www.tapology.com/fightcenter/promotions/1-ultimate-fighting-championship-ufc?page=1"
             yield scrapy.Request(
-                url=url,
+                url=self.get_scraperapi_url(url),
                 callback=self.parse_upcoming_events
                 )
 
@@ -60,7 +73,7 @@ class SmartSpider(scrapy.Spider):
                 self.logger.info(f"Skipping Road to UFC event: {event_name}")
                 continue
 
-            event_url = response.urljoin(event_relative_url)
+            event_url = urljoin("https://www.tapology.com", event_relative_url)
             event_id = UrlParser.extract_event_id(event_relative_url)
 
             if not event_id:
@@ -83,7 +96,7 @@ class SmartSpider(scrapy.Spider):
                     self.logger.info(f"Event {event_id} is new or upcoming. Scheduling full page scrape.")
 
                     yield scrapy.Request(
-                        url=event_url,
+                        url=self.get_scraperapi_url(event_url),
                         callback=EventPageParser.parse_card,
                         cb_kwargs={"event_id": event_id, "event_url": event_url},
                     )

@@ -1,5 +1,7 @@
-import scrapy
+import os
+from urllib.parse import urlencode, urljoin
 
+import scrapy
 from ..utils.date_parser import DateParser
 from ..utils.record_parser import RecordParser
 from ..utils.url_parser import UrlParser
@@ -9,18 +11,30 @@ from ..items import FighterItem
 
 class FighterSpider(scrapy.Spider):
     name = "fighter"
-    allowed_domains = ["tapology.com"]
+    allowed_domains = ["tapology.com", "api.scraperapi.com"]
+
+    SCRAPER_API_KEY = os.getenv('SCRAPER_API_KEY')
 
     def __init__(self, *args, **kwargs):
         super(FighterSpider, self).__init__(*args, **kwargs)
         self.fighter_id = kwargs.get('fighter_id')
         self.target_url = kwargs.get('profile_url')
 
+
+    def get_scraperapi_url(self, target_url):
+        if not self.SCRAPER_API_KEY:
+            self.logger.error("API key for ScraperAPI not found! Please set the SCRAPER_API_KEY environment variable.")
+            return target_url
+
+        payload = {'api_key': self.SCRAPER_API_KEY, 'url': target_url}
+        return 'https://api.scraperapi.com/?' + urlencode(payload)
+
+
     async def start(self):
         if self.target_url and self.fighter_id:
-            self.logger.info(f"[RESCUE MODE] Starting scrape for Fighter ID: {self.fighter_id}")
+            self.logger.info(f"Starting scrape for Fighter ID: {self.fighter_id}")
             yield scrapy.Request(
-                url=self.target_url,
+                url=self.get_scraperapi_url(self.target_url),
                 callback=self.parse,
                 dont_filter=True
             )
@@ -53,7 +67,7 @@ class FighterSpider(scrapy.Spider):
         style = self._extract_detail(container, "Foundation Style:")
 
         country_flag_relative_url = header.css("img::attr(src)").get(default="").strip() or None
-        country_flag_url = response.urljoin(country_flag_relative_url) if country_flag_relative_url else None
+        country_flag_url = urljoin("https://www.tapology.com", country_flag_relative_url) if country_flag_relative_url else None
         country_code = UrlParser.extract_country_code(country_flag_url) if country_flag_url else None
 
         fighter_item = FighterItem()
