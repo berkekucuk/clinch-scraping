@@ -80,6 +80,9 @@ class RankingSpider(scrapy.Spider):
 
 
     def process_fighter(self, fighter_name, weight_class_id, rank):
+        if rank == 0 and weight_class_id in ["mens_p4p", "womens_p4p"]:
+            return False
+
         fighter_name = fighter_name.strip()
 
         search_name = NAME_EXCEPTIONS.get(fighter_name, fighter_name)
