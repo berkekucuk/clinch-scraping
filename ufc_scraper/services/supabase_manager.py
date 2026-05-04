@@ -86,29 +86,17 @@ class SupabaseManager:
 
     async def load_fighter_cache(self):
         fighter_cache = {}
-        batch_size = 1000
-        offset = 0
 
         try:
             self.logger.info("Loading fighter cache...")
 
-            while True:
-                response = await self.client.table('fighters')\
-                    .select('fighter_id, name')\
-                    .range(offset, offset + batch_size - 1)\
-                    .execute()
+            response = await self.client.table('fighters')\
+                .select('fighter_id, name')\
+                .execute()
 
-                if not response.data:
-                    break
-
-                for f in response.data:
-                    if f.get('name'):
-                        fighter_cache[f['name'].strip()] = f['fighter_id']
-
-                if len(response.data) < batch_size:
-                    break
-
-                offset += batch_size
+            for f in response.data:
+                if f.get('name'):
+                    fighter_cache[f['name'].strip()] = f['fighter_id']
 
             self.logger.info(f"Successfully loaded {len(fighter_cache)} fighters into cache.")
             return fighter_cache
