@@ -1,6 +1,5 @@
 import logging
 from itemadapter import ItemAdapter
-from scrapy.utils.defer import deferred_from_coro
 from .services.supabase_manager import SupabaseManager
 
 class DatabasePipeline:
@@ -18,7 +17,7 @@ class DatabasePipeline:
         self.has_fighter_updates = False
 
 
-    async def process_item(self, item, spider):
+    async def process_item(self, item):
         adapter = ItemAdapter(item)
         item_type = adapter.get("item_type")
 
@@ -58,14 +57,14 @@ class DatabasePipeline:
         return item
 
 
-    def close_spider(self, spider):
+    async def close_spider(self):
         self.logger.info(f"[BATCH START] Processing buffered items: "
                          f"{len(self.event_buffer)} events, "
                          f"{len(self.fight_buffer)} fights, "
                          f"{len(self.fighter_buffer)} fighters, "
                          f"{len(self.participation_buffer)} participations")
 
-        return deferred_from_coro(self._flush_all())
+        await self._flush_all()
 
 
     async def _flush_all(self):
