@@ -33,5 +33,6 @@ NAME_EXCEPTIONS = {
     "Wang Cong": "Cong Wang",
     "Mizuki": "Mizuki Inoue",
     "Uroš Medić": "Uros Medic",
-    "Michael Venom Page": "Michael Page"
+    "Michael Venom Page": "Michael Page",
+    "Edgar Chairez": "Edgar Cháirez"
 }
