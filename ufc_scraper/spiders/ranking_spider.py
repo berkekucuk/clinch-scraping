@@ -59,16 +59,33 @@ class RankingSpider(scrapy.Spider):
 
             champion_name = group.css('.info h5 a::text').get()
             if champion_name:
-                self.process_fighter(champion_name, db_weight_class_id, 0)
+                self.process_fighter(champion_name, db_weight_class_id, 0, 0)
 
             rows = group.css('tbody tr')
             current_rank = 1
 
             for row in rows:
                 fighter_name = row.css('.views-field-title a::text').get()
+                
+                rank_change = 0
+                rank_change_td = row.css('.views-field-weight-class-rank-change')
+                if rank_change_td:
+                    change_texts = rank_change_td.xpath('./text()').getall()
+                    change_text = "".join(change_texts).strip().replace('"', '')
+                    change_span_class = rank_change_td.css('span::attr(class)').get()
+                    
+                    if change_text and change_span_class:
+                        try:
+                            change_val = int(change_text)
+                            if 'increase' in change_span_class:
+                                rank_change = change_val
+                            elif 'decrease' in change_span_class:
+                                rank_change = -change_val
+                        except ValueError:
+                            pass
 
                 if fighter_name:
-                    self.process_fighter(fighter_name, db_weight_class_id, current_rank)
+                    self.process_fighter(fighter_name, db_weight_class_id, current_rank, rank_change)
                     current_rank += 1
 
         if self.rankings_buffer:
@@ -79,7 +96,7 @@ class RankingSpider(scrapy.Spider):
             )
 
 
-    def process_fighter(self, fighter_name, weight_class_id, rank):
+    def process_fighter(self, fighter_name, weight_class_id, rank, rank_change=0):
         if rank == 0 and weight_class_id in ["mens_p4p", "womens_p4p"]:
             return False
 
@@ -93,6 +110,7 @@ class RankingSpider(scrapy.Spider):
                 "weight_class_id": weight_class_id,
                 "fighter_id": found_id,
                 "rank_number": rank,
+                "rank_change": rank_change,
             }
             self.rankings_buffer.append(data)
             return True
