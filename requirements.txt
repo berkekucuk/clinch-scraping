@@ -1,5 +1,5 @@
-Scrapy==2.15.2
-scrapy-impersonate==1.6.3
+Scrapy==2.16.0
+scrapy-impersonate==1.7.0
 supabase==2.29.0
 python-dotenv==1.2.2
 python-dateutil==2.9.0.post0
