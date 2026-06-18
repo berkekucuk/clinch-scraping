@@ -14,8 +14,6 @@ NEWSPIDER_MODULE = "ufc_scraper.spiders"
 
 ADDONS = {}
 
-USER_AGENT = ""
-
 ROBOTSTXT_OBEY = False
 
 CONCURRENT_REQUESTS = 1
@@ -31,14 +29,15 @@ ITEM_PIPELINES = {
 
 FEED_EXPORT_ENCODING = "utf-8"
 
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+
+USER_AGENT = ""
+
 DOWNLOAD_HANDLERS = {
     "http": "scrapy_impersonate.ImpersonateDownloadHandler",
     "https": "scrapy_impersonate.ImpersonateDownloadHandler",
 }
 
 DOWNLOADER_MIDDLEWARES = {
-    "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
-    "scrapy_impersonate.RandomBrowserMiddleware": 400,
+    "scrapy_impersonate.RandomBrowserMiddleware": 1000,
 }
-
-TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
