@@ -1,5 +1,6 @@
 import subprocess
 import logging
+import random
 from ufc_scraper.services.supabase_manager import SupabaseManager
 
 logger = logging.getLogger()
@@ -47,8 +48,9 @@ def handler(event, context):
                     logger.info(f"[TASK:{task_type}] Event {event_id} is COMPLETED.")
                     return {"statusCode": 200, "step_status": "COMPLETED"}
                 else:
-                    logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS.")
-                    return {"statusCode": 200, "step_status": "IN_PROGRESS"}
+                    wait_time = random.randint(90, 150)
+                    logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS with jitter: {wait_time}s.")
+                    return {"statusCode": 200, "step_status": "IN_PROGRESS", "wait_seconds": wait_time}
 
             elif task_type == 'fighter_scrape':
                 fighter_id = event.get('fighter_id')
