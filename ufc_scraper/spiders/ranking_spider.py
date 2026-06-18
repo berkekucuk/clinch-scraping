@@ -73,8 +73,10 @@ class RankingSpider(scrapy.Spider):
                     change_texts = rank_change_td.xpath('./text()').getall()
                     change_text = "".join(change_texts).strip().replace('"', '')
                     change_span_class = rank_change_td.css('span::attr(class)').get()
-                    
-                    if change_text and change_span_class:
+
+                    if change_span_class and 'not-ranked' in change_span_class:
+                        rank_change = None
+                    elif change_text and change_span_class:
                         try:
                             change_val = int(change_text)
                             if 'increase' in change_span_class:
