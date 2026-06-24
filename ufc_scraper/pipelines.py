@@ -13,6 +13,7 @@ class DatabasePipeline:
         self.fight_buffer = {}
         self.fighter_buffer = {}
         self.participation_buffer = {}
+        self.ranking_buffer = {}
 
         self.has_fighter_updates = False
 
@@ -53,6 +54,11 @@ class DatabasePipeline:
             fighter_id = item_data.get("fighter_id")
             if fight_id and fighter_id:
                 self.participation_buffer[(fight_id, fighter_id)] = item_data
+
+        elif item_type == "ranking":
+            key = (item_data.get("weight_class_id"), item_data.get("rank_number"))
+            if key[0] and key[1] is not None:
+                self.ranking_buffer[key] = item_data
 
         return item
 
@@ -95,5 +101,13 @@ class DatabasePipeline:
                 on_conflict="fight_id, fighter_id"
             )
             self.participation_buffer.clear()
+
+        if self.ranking_buffer:
+            await self.supabase.bulk_upsert(
+                "rankings",
+                list(self.ranking_buffer.values()),
+                on_conflict="weight_class_id,rank_number"
+            )
+            self.ranking_buffer.clear()
 
         self.logger.info("[BATCH END] All items processed successfully.")

@@ -25,6 +25,7 @@ AUTOTHROTTLE_ENABLED = False
 
 ITEM_PIPELINES = {
     'ufc_scraper.pipelines.DatabasePipeline': 100,
+    #'ufc_scraper.ranking_json_pipeline.RankingJsonPipeline': 200,
 }
 
 FEED_EXPORT_ENCODING = "utf-8"
