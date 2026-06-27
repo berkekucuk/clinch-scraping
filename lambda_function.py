@@ -46,7 +46,7 @@ def handler(event, context):
 
                 if current_status == "completed":
                     logger.info(f"[TASK:{task_type}] Event {event_id} is COMPLETED.")
-                    return {"statusCode": 200, "step_status": "COMPLETED"}
+                    return {"statusCode": 200, "step_status": "COMPLETED", "wait_seconds": 0}
                 else:
                     wait_time = random.randint(90, 150)
                     logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS with jitter: {wait_time}s.")
