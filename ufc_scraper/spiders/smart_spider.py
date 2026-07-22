@@ -99,6 +99,9 @@ class SmartSpider(scrapy.Spider):
                 else:
                     self.logger.debug(f"Event {event_id} already exists. Skipping.")
 
+            if not new_events:
+                self.logger.info("No new events found.")
+
             for event_id, event_url in new_events:
                 self.logger.info(f"Event {event_id} is NEW. Scheduling full page scrape.")
                 yield scrapy.Request(
