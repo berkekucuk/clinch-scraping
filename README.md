@@ -12,13 +12,13 @@ It is configured to place minimal load on servers by using appropriate delays, l
 
 ## Architecture Overview
 
-All triggers are fully automated. An EventBridge cron rule and a Supabase database webhook feed into the **AWS Step Functions** state machine, which dispatches to Lambda based on the `task` field.
+All triggers are fully automated. An EventBridge cron rule, the Event Date Gatekeeper Lambda invoked by the Supabase events webhook, and the fighter webhook feed into the **AWS Step Functions** state machine, which dispatches to Lambda based on the `task` field.
 
 ```
   ┌───────────────────────┐    ┌──────────────────────────────┐     ┌────────────────────────┐
-  │    AWS EventBridge    │    │     AWS Step Functions       │     │  Supabase DB Webhook   │
-  │   (every X hours)     │    │  (when datetime_utc arrives, │     │  (new fighter row      │
-  │                       │    │  triggers step_function_loop)│     │   inserted)            │
+  │   AWS EventBridge     │    │ AWS Lambda: Event Gatekeeper │     │  Supabase DB Webhook   │
+  │   (every X hours)     │    │ (Supabase DB webhook)        │     │  (new fighter row      │
+  │                       │    │ (insert or datetime update)  │     │   inserted)            │
   └──────────┬────────────┘    └─────────────┬────────────────┘     └────────────┬───────────┘
         task: upcoming             task: step_function_loop            task: fighter_scrape
              │                               │                                   │
@@ -70,7 +70,7 @@ Runs every X hours with database-driven polling:
 This keeps upcoming-event data fresh while reducing requests to data provider.
 
 ### 2. Live Mode (`step_function_loop`)
-When an event's scheduled start time arrives, AWS Step Functions automatically invokes Lambda in live mode. It then polls Lambda at intervals determined by jitter until the event status changes to `completed`.
+When a new event is inserted or its `datetime_utc` value changes, Supabase sends a webhook to the Event Date Gatekeeper Lambda. The Lambda starts a Step Functions execution with the `step_function_loop` payload. The state machine waits until the scheduled start time, then invokes Lambda in live mode at intervals determined by jitter until the event status changes to `completed`.
 
 ### 3. Fighter Detail Mode (`fighter_scrape`)
 Triggered by a **Supabase database webhook** whenever a new fighter row is inserted. Scrapes the fighter's profile page to enrich the record with bio data (nationality, height, weight, etc.).
