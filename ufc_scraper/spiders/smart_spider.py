@@ -13,7 +13,7 @@ class SmartSpider(scrapy.Spider):
         super(SmartSpider, self).__init__(*args, **kwargs)
         self.supabase = SupabaseManager()
         self.mode = kwargs.get('mode', 'upcoming')
-        self.event_url = kwargs.get('event_url')
+        self.event_url: str | None = kwargs.get('event_url')
 
     async def start(self):
         if self.mode == 'single':

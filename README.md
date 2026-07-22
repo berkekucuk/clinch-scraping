@@ -12,43 +12,43 @@ It is configured to place minimal load on servers by using appropriate delays, l
 
 ## Architecture Overview
 
-All triggers are fully automated. Two Supabase webhooks and one EventBridge cron rule all feed into the same **AWS Step Functions** state machine, which dispatches to Lambda based on the `task` field.
+All triggers are fully automated. An EventBridge cron rule and a Supabase database webhook feed into the **AWS Step Functions** state machine, which dispatches to Lambda based on the `task` field.
 
 ```
-  ┌──────────────────────┐   ┌──────────────────────────────┐   ┌────────────────────────┐
-  │    AWS EventBridge    │   │     Supabase DB Webhook      │   │  Supabase DB Webhook   │
-  │   (every 3 hours)     │   │  (new event row inserted OR  │   │  (new fighter row      │
-  │                       │   │   datetime_utc field changed) │   │   inserted)            │
-  └──────────┬────────────┘   └──────────────┬───────────────┘   └────────────┬───────────┘
-  task: upcoming              task: step_function_loop             task: fighter_scrape
-             │                              │                                  │
-             └──────────────────────────────┴──────────────────────────────────┘
-                                            │
-                                            ▼
+  ┌───────────────────────┐    ┌──────────────────────────────┐     ┌────────────────────────┐
+  │    AWS EventBridge    │    │     AWS Step Functions       │     │  Supabase DB Webhook   │
+  │   (every X hours)     │    │  (when datetime_utc arrives, │     │  (new fighter row      │
+  │                       │    │  triggers step_function_loop)│     │   inserted)            │
+  └──────────┬────────────┘    └─────────────┬────────────────┘     └────────────┬───────────┘
+        task: upcoming             task: step_function_loop            task: fighter_scrape
+             │                               │                                   │
+             └───────────────────────────────┴───────────────────────────────────┘
+                                             │
+                                             ▼
                                ┌────────────────────────┐
-                               │    AWS Step Functions   │
-                               │    DetermineTaskType    │
-                               │      (Choice State)     │
+                               │    AWS Step Functions  │
+                               │    DetermineTaskType   │
+                               │      (Choice State)    │
                                └──────┬────────┬─────┬──┘
                                       │        │     │
                        ───────────────┘        │     └───────────────
                        │                       │                     │
                        ▼                       ▼                     ▼
-          ┌────────────────────┐  ┌─────────────────────────┐  ┌──────────────────┐
-          │  RunUpcomingScraper│  │   WaitUntilEventStart    │  │ RunFighterScraper│
-          │  (Lambda: upcoming)│  │  (waits for event time)  │  │ (Lambda: fighter)│
-          └─────────┬──────────┘  └───────────┬─────────────┘  └────────┬─────────┘
+          ┌────────────────────┐  ┌─────────────────────────┐  ┌───────────────────┐
+          │ RunUpcomingScraper │  │   WaitUntilEventStart   │  │ RunFighterScraper │
+          │                    │  │  (waits for event time) │  │                   │
+          └─────────┬──────────┘  └───────────┬─────────────┘  └─────────┬─────────┘
                     │                         │                          │
                     ▼                         ▼                          ▼
-                ✅ Done             ┌──────────────────────┐         ✅ Done
+                ✅ Done            ┌───────────────────────┐           ✅ Done
                                    │    RunLiveScraper     │
-                                   │  (Lambda: live loop)  │◄──────────────┐
+                                   │                       │◄──────────────┐
                                    └──────────┬────────────┘               │
                                               │                            │
                                               ▼                            │
-                                     ┌─────────────────┐                   │
-                                     │ CheckIfCompleted │                   │
-                                     └──────┬──────┬───┘                   │
+                                     ┌──────────────────┐                  │
+                                     │ CheckIfCompleted │                  │
+                                     └──────┬──────┬────┘                  │
                                             │      │                       │
                                    COMPLETED│      │IN_PROGRESS            │
                                             │      ▼                       │
@@ -63,25 +63,14 @@ All triggers are fully automated. Two Supabase webhooks and one EventBridge cron
 ## Scraping Flow
 
 ### 1. Scheduled Mode (`upcoming`)
-Runs every 3 hours. Uses a **Hybrid Quota** — scrapes at most 6 event pages per run:
-- **New events** (not in DB) are prioritized first.
-- **Oldest-updated upcoming events** fill the remaining quota.
+Runs every X hours with database-driven polling:
+- Once per day, it scrapes the data provider event list and schedules full-page scrapes only for events not already in the database.
+- At every other run, it skips the event-list request and refreshes the four least recently updated events whose status is `Upcoming`.
 
-This rotation ensures all upcoming events are eventually refreshed without hammering Cloudflare.
-
-```
-Tapology Event List Page
-        │
-        ▼ (parse up to 6 events)
-┌───────────────────┐
-│  SmartSpider      │  ──→  EventPageParser  ──→  DatabasePipeline  ──→  Supabase
-│  (upcoming mode)  │         (per fight)           (bulk upsert)
-└───────────────────┘
-  Events  │  Fights  │  Fighters  │  Participations
-```
+This keeps upcoming-event data fresh while reducing requests to data provider.
 
 ### 2. Live Mode (`step_function_loop`)
-Triggered when a live event is detected. AWS Step Functions polls Lambda every ~2 minutes until the event status changes to `completed`.
+When an event's scheduled start time arrives, AWS Step Functions automatically invokes Lambda in live mode. It then polls Lambda at intervals determined by jitter until the event status changes to `completed`.
 
 ### 3. Fighter Detail Mode (`fighter_scrape`)
 Triggered by a **Supabase database webhook** whenever a new fighter row is inserted. Scrapes the fighter's profile page to enrich the record with bio data (nationality, height, weight, etc.).
@@ -107,7 +96,7 @@ The project uses several techniques to minimize detection:
 | Layer | Technology |
 |---|---|
 | Language | Python 3.12 |
-| Scraping Framework | Scrapy + scrapy-impersonate |
+| Scraping Framework | Scrapy |
 | Database | Supabase (PostgreSQL) |
 | Deployment | Docker + AWS Lambda |
 | Orchestration | AWS Step Functions + EventBridge |
