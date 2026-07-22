@@ -1,5 +1,6 @@
 import scrapy
 from urllib.parse import urljoin
+from datetime import UTC, datetime
 from ..utils.url_parser import UrlParser
 from ..services.supabase_manager import SupabaseManager
 from ..parsers.event_page_parser import EventPageParser
@@ -33,14 +34,30 @@ class SmartSpider(scrapy.Spider):
             )
 
         else:
-            self.logger.info("[UPCOMING MODE] Starting event pagination scrape...")
-            url = "https://www.tapology.com/fightcenter/promotions/1-ultimate-fighting-championship-ufc?page=1"
-            yield scrapy.Request(
-                url=url,
-                callback=self.parse_upcoming_events
-            )
+            current_hour_utc = datetime.now(UTC).hour
 
-    async def parse_upcoming_events(self, response):
+            if current_hour_utc == 0:
+                self.logger.info("[UPCOMING MODE]. Starting event pagination scrape...")
+                url = "https://www.tapology.com/fightcenter/promotions/1-ultimate-fighting-championship-ufc?page=1"
+                yield scrapy.Request(
+                    url=url,
+                    callback=self.parse_new_events
+                )
+            else:
+                self.logger.info(f"[UPCOMING MODE]. Skipping pagination scrape. Fetching from DB...")
+                upcoming_events = await self.supabase.get_upcoming_events(limit=4)
+
+                for event in upcoming_events:
+                    event_id = event["event_id"]
+                    event_url = event["event_url"]
+                    self.logger.info(f"Event {event_id} is UPCOMING (From DB). Scheduling full page scrape.")
+                    yield scrapy.Request(
+                        url=event_url,
+                        callback=EventPageParser.parse_card,
+                        cb_kwargs={"event_id": event_id, "event_url": event_url},
+                    )
+
+    async def parse_new_events(self, response):
         events = response.css('div[data-controller="bout-toggler"]')
         self.logger.info(f"Found {len(events)} events on page {response.url}")
 
@@ -70,7 +87,6 @@ class SmartSpider(scrapy.Spider):
             existing_events = await self.supabase.get_events_by_ids(event_ids)
 
             new_events = []
-            upcoming_events = []
 
             for event_data in event_data_list:
                 event_id = event_data["event_id"]
@@ -80,38 +96,11 @@ class SmartSpider(scrapy.Spider):
 
                 if not existing_event:
                     new_events.append((event_id, event_url))
-                elif existing_event.get("status") == "Upcoming":
-                    updated_at = existing_event.get("updated_at")
-                    upcoming_events.append((event_id, event_url, updated_at))
                 else:
-                    self.logger.debug(f"Event {event_id} is already completed. Skipping.")
-
-            max_pages = 4
-            selected_events = []
+                    self.logger.debug(f"Event {event_id} already exists. Skipping.")
 
             for event_id, event_url in new_events:
-                if len(selected_events) < max_pages:
-                    self.logger.info(f"Event {event_id} is NEW. Prioritizing full page scrape.")
-                    selected_events.append((event_id, event_url))
-                else:
-                    self.logger.debug(f"Event {event_id} is NEW but skipped due to quota limit.")
-
-            remaining_quota = max_pages - len(selected_events)
-
-            if remaining_quota > 0 and upcoming_events:
-                upcoming_events.sort(key=lambda x: x[2] if x[2] else "")
-                
-                for event_id, event_url, _ in upcoming_events[:remaining_quota]:
-                    self.logger.info(f"Event {event_id} is UPCOMING (Oldest). Scheduling full page scrape.")
-                    selected_events.append((event_id, event_url))
-                
-                for event_id, event_url, _ in upcoming_events[remaining_quota:]:
-                    self.logger.debug(f"Event {event_id} is UPCOMING but skipped due to quota limit.")
-            else:
-                for event_id, event_url, _ in upcoming_events:
-                    self.logger.debug(f"Event {event_id} is UPCOMING but skipped due to quota limit.")
-
-            for event_id, event_url in selected_events:
+                self.logger.info(f"Event {event_id} is NEW. Scheduling full page scrape.")
                 yield scrapy.Request(
                     url=event_url,
                     callback=EventPageParser.parse_card,

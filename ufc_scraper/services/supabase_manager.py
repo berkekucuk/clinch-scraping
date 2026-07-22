@@ -63,6 +63,22 @@ class SupabaseManager:
             raise e
 
 
+    async def get_upcoming_events(self, limit: int = 4):
+        try:
+            response = await self.client.table("events")\
+                .select("event_id, event_url, updated_at")\
+                .eq("status", "Upcoming")\
+                .order("updated_at", nullsfirst=True)\
+                .limit(limit)\
+                .execute()
+            
+            self.logger.info(f"Fetched {len(response.data)} upcoming events from DB")
+            return response.data
+        except Exception as e:
+            self.logger.error(f"Failed to get upcoming events: {e}")
+            return []
+
+
     def get_event_status(self, event_id: str) -> str:
         if not self.url or not self.key:
             self.logger.warning("Supabase credentials missing.")
