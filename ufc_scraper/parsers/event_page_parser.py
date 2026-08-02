@@ -94,6 +94,8 @@ class EventPageParser:
             return
 
         bout_type = box_div.xpath("./span[1]/a/text()").get(default="").strip() or None
+        if bout_type == "* Rumor *":
+            bout_type = "Main Card"
         weight_class_lbs = box_div.xpath("./div[1]/span/text()").get(default="").strip() or None
         weight_class_id = WeightClassMapper.map_weight_class(weight_class_lbs)
         rounds_format = box_div.xpath("./div[2]/text()").get(default="").strip() or None
