@@ -13,6 +13,7 @@ def handler(event, context):
         logger.info(f"[TASK:{task_type}] Task triggered.")
 
         try:
+            # Scheduled polling mode: keeps upcoming-event data fresh.
             if task_type == 'upcoming':
                 logger.info(f"[TASK:{task_type}] Starting scraper...")
                 subprocess.run([
@@ -24,6 +25,7 @@ def handler(event, context):
                 logger.info(f"[TASK:{task_type}] Scraper finished.")
                 return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
 
+            # Scans the event list page for new events not yet in the database.
             elif task_type == 'event_scan':
                 logger.info(f"[TASK:{task_type}] Starting event scan...")
                 subprocess.run([
@@ -35,6 +37,7 @@ def handler(event, context):
                 logger.info(f"[TASK:{task_type}] Event scan finished.")
                 return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
 
+            # Live mode: scrapes a running event repeatedly until it is completed.
             elif task_type == 'step_function_loop':
                 event_url = event.get('event_url')
                 event_id = event.get('event_id')
@@ -63,6 +66,26 @@ def handler(event, context):
                     logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS with jitter: {wait_time}s.")
                     return {"statusCode": 200, "step_status": "IN_PROGRESS", "wait_seconds": wait_time}
 
+            # Single mode: scrapes a single event page once.
+            elif task_type == 'single':
+                event_url = event.get('event_url')
+
+                if not event_url:
+                    return {"statusCode": 400, "body": "Missing event_url"}
+
+                logger.info(f"[TASK:{task_type}] Scraping event: {event_url}")
+
+                subprocess.run([
+                    "scrapy", "crawl", "smart",
+                    "-a", "mode=single",
+                    "-a", f"event_url={event_url}",
+                    "--loglevel", "INFO"
+                ], check=True)
+
+                logger.info(f"[TASK:{task_type}] Scraper finished for '{event_url}'.")
+                return {"statusCode": 200, "body": f"Scrape finished for {event_url}"}
+
+            # Fighter detail mode: enriches a new fighter row with bio data.
             elif task_type == 'fighter_scrape':
                 fighter_id = event.get('fighter_id')
                 profile_url = event.get('profile_url')
