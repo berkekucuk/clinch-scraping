@@ -24,6 +24,17 @@ def handler(event, context):
                 logger.info(f"[TASK:{task_type}] Scraper finished.")
                 return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
 
+            elif task_type == 'event_scan':
+                logger.info(f"[TASK:{task_type}] Starting event scan...")
+                subprocess.run([
+                    "scrapy", "crawl", "smart",
+                    "-a", "mode=event_scan",
+                    "--loglevel", "INFO"
+                ], check=True)
+
+                logger.info(f"[TASK:{task_type}] Event scan finished.")
+                return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
+
             elif task_type == 'step_function_loop':
                 event_url = event.get('event_url')
                 event_id = event.get('event_id')
@@ -31,11 +42,11 @@ def handler(event, context):
                 if not event_url or not event_id:
                     return {"statusCode": 400, "body": "Missing event_id or event_url"}
 
-                logger.info(f"[TASK:{task_type}] Scraping single event: {event_id}")
+                logger.info(f"[TASK:{task_type}] Scraping live event: {event_id}")
 
                 subprocess.run([
                     "scrapy", "crawl", "smart",
-                    "-a", "mode=single",
+                    "-a", "mode=live",
                     "-a", f"event_url={event_url}",
                     "--loglevel", "INFO"
                 ], check=True)
