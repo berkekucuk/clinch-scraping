@@ -1,4 +1,5 @@
 # Scrapy settings for ufc_scraper project
+import os
 #
 # For simplicity, this file contains only settings considered important or
 # commonly used. You can find more settings consulting the documentation:
@@ -12,14 +13,18 @@ BOT_NAME = "ufc_scraper"
 SPIDER_MODULES = ["ufc_scraper.spiders"]
 NEWSPIDER_MODULE = "ufc_scraper.spiders"
 
-ADDONS = {}
+# Zyte API Add-on
+ADDONS = {
+    "scrapy_zyte_api.Addon": 500,
+}
+
+# Zyte API Settings
+ZYTE_API_KEY = os.getenv("ZYTE_API_KEY")
+ZYTE_API_TRANSPARENT_MODE = True
 
 ROBOTSTXT_OBEY = False
 
-CONCURRENT_REQUESTS = 1
-DOWNLOAD_DELAY = 2
-RETRY_TIMES = 8
-RETRY_HTTP_CODES = [500, 502, 503, 504, 522, 524, 408, 429, 403]
+CONCURRENT_REQUESTS = 4
 COOKIES_ENABLED = False
 AUTOTHROTTLE_ENABLED = False
 
@@ -31,14 +36,3 @@ ITEM_PIPELINES = {
 FEED_EXPORT_ENCODING = "utf-8"
 
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
-
-USER_AGENT = ""
-
-DOWNLOAD_HANDLERS = {
-    "http": "scrapy_impersonate.ImpersonateDownloadHandler",
-    "https": "scrapy_impersonate.ImpersonateDownloadHandler",
-}
-
-DOWNLOADER_MIDDLEWARES = {
-    "scrapy_impersonate.RandomBrowserMiddleware": 1000,
-}
