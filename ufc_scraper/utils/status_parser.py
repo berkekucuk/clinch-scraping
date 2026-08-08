@@ -1,9 +1,6 @@
-class StatusParser:
+def parse_status(status_string: str) -> str | None:
 
-    @staticmethod
-    def parse(status_string: str) -> str | None:
+    if not status_string:
+        return None
 
-        if not status_string:
-            return None
-
-        return status_string.split()[0]
+    return status_string.split()[0]

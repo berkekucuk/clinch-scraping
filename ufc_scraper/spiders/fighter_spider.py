@@ -1,10 +1,10 @@
-from urllib.parse import urljoin
 import scrapy
-from ..utils.date_parser import DateParser
-from ..utils.record_parser import RecordParser
-from ..utils.url_parser import UrlParser
-from ..utils.measurement_parser import MeasurementParser
-from ..utils.weight_class_mapper import WeightClassMapper
+from urllib.parse import urljoin
+from ..utils.date_parser import parse_date_to_iso
+from ..utils.record_parser import parse_record
+from ..utils.url_parser import extract_country_code
+from ..utils.measurement_parser import parse_measurement
+from ..utils.weight_class_mapper import map_weight_class
 from ..items import FighterItem
 
 class FighterSpider(scrapy.Spider):
@@ -34,19 +34,19 @@ class FighterSpider(scrapy.Spider):
         nickname = self._extract_detail(container, "Nickname:")
 
         record_str = self._extract_detail(container, "Pro MMA Record:")
-        record = RecordParser.parse(record_str)
+        record = parse_record(record_str)
 
         date_of_birth_str = self._extract_detail(container, "Date of Birth:")
-        date_of_birth = DateParser.parse_date_to_iso(date_of_birth_str)
+        date_of_birth = parse_date_to_iso(date_of_birth_str)
 
         height_str = self._extract_detail(container, "Height:")
-        height = MeasurementParser.parse_measurement(height_str)
+        height = parse_measurement(height_str)
 
         reach_str = self._extract_reach(container)
-        reach = MeasurementParser.parse_measurement(reach_str)
+        reach = parse_measurement(reach_str)
 
         weight_class_name = self._extract_detail(container, "Weight Class:")
-        weight_class_id = WeightClassMapper.map_weight_class(weight_class_name)
+        weight_class_id = map_weight_class(weight_class_name)
 
         born = self._extract_detail(container, "Born:")
         fighting_out_of = self._extract_detail(container, "Fighting out of:")
@@ -54,7 +54,7 @@ class FighterSpider(scrapy.Spider):
 
         country_flag_relative_url = header.css("img::attr(src)").get(default="").strip() or None
         country_flag_url = urljoin("https://www.tapology.com", country_flag_relative_url) if country_flag_relative_url else None
-        country_code = UrlParser.extract_country_code(country_flag_url) if country_flag_url else None
+        country_code = extract_country_code(country_flag_url) if country_flag_url else None
 
         fighter_item = FighterItem()
         fighter_item['item_type'] = "fighter_update"
