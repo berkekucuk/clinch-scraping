@@ -1,4 +1,5 @@
-def extract_event_id(url):
+
+def extract_event_id(url: str) -> str | None:
     try:
         event_part = url.split("/events/")[1]
         first_part = event_part.split("-")[0]
@@ -9,7 +10,7 @@ def extract_event_id(url):
         return None
 
 
-def extract_fighter_id(url):
+def extract_fighter_id(url: str) -> str | None:
     try:
         fighter_part = url.split("/fighters/")[1]
         first_part = fighter_part.split("-")[0]
@@ -20,7 +21,7 @@ def extract_fighter_id(url):
         return None
 
 
-def extract_fight_id(url):
+def extract_fight_id(url: str) -> str | None:
     try:
         fight_part = url.split("/bouts/")[1]
         first_part = fight_part.split("-")[0]
@@ -31,7 +32,7 @@ def extract_fight_id(url):
         return None
 
 
-def extract_country_code(url):
+def extract_country_code(url: str) -> str | None:
     if not url:
         return None
 

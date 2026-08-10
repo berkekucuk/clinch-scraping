@@ -8,7 +8,7 @@ def parse_fighter_div(fighter_div, response, is_first_fighter=True):
     css_class = "order-first" if is_first_fighter else "order-last"
 
     name = fighter_div.css("a.link-primary-red::text").get(default="").strip() or None
-    relative_url = fighter_div.css("a.link-primary-red::attr(href)").get(default="").strip() or None
+    relative_url = fighter_div.css("a.link-primary-red::attr(href)").get(default="").strip()
     profile_url = response.urljoin(relative_url) if relative_url else None
     fighter_id = extract_fighter_id(relative_url) if relative_url else None
     image_url = fighter_div.css(f"div.relative.{css_class} img::attr(src)").get(default="").strip() or None

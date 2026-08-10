@@ -1,3 +1,4 @@
+
 def map_weight_class(value):
     if value is None:
         return None

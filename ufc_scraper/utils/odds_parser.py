@@ -33,7 +33,7 @@ def parse_odds(bout_details_div):
         }
 
 
-def split_odds(odds_str: str) -> dict:
+def split_odds(odds_str: str | None) -> dict:
     """
     '-350 (Moderate Favorite)' → {'odds_value': -350, 'odds_label': 'Moderate Favorite'}
     '+390 (Moderate Underdog)' → {'odds_value': 390, 'odds_label': 'Moderate Underdog'}

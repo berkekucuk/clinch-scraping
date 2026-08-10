@@ -1,7 +1,7 @@
 import re
 
 
-def standardize_round_summary(round_summary_str: str) -> str:
+def standardize_round_summary(round_summary_str: str | None) -> str | None:
     if not round_summary_str:
         return None
 

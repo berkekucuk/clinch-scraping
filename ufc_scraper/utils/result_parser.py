@@ -1,3 +1,4 @@
+
 def determine_fight_result(fighter_div):
     color_map = {
         "text-blue-100": "draw",

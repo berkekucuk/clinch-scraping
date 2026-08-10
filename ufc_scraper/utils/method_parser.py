@@ -1,4 +1,5 @@
-def split_method(method_str: str) -> dict:
+
+def split_method(method_str: str | None) -> dict:
     if not method_str:
         return {"method_type": None, "method_detail": None}
 

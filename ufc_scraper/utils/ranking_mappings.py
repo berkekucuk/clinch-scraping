@@ -1,3 +1,4 @@
+
 WEIGHT_CLASS_MAPPING = {
     "Men's Pound-for-Pound Top Rank": "mens_p4p",
     "Men's Pound-for-Pound": "mens_p4p",

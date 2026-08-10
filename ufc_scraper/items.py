@@ -1,60 +1,58 @@
-# Define here the models for your scraped items
-#
-# See documentation in:
-# https://docs.scrapy.org/en/latest/topics/items.html
+from dataclasses import dataclass
 
-import scrapy
-
-
-class EventItem(scrapy.Item):
-    item_type = scrapy.Field()
-    event_id = scrapy.Field()  # PK
-    event_url = scrapy.Field()
-    status = scrapy.Field()
-    name = scrapy.Field()
-    datetime_utc = scrapy.Field()
-    venue = scrapy.Field()
-    location = scrapy.Field()
+@dataclass
+class EventItem:
+    item_type: str
+    event_id: str  # PK
+    event_url: str
+    status: str | None = None
+    name: str | None = None
+    datetime_utc: str | None = None
+    venue: str | None = None
+    location: str | None = None
 
 
-class FightItem(scrapy.Item):
-    item_type = scrapy.Field()
-    fight_id = scrapy.Field()  # PK
-    event_id = scrapy.Field()  # FK -> EventItem
-    method_type = scrapy.Field()
-    method_detail = scrapy.Field()
-    round_summary = scrapy.Field()
-    bout_type = scrapy.Field()
-    weight_class_lbs = scrapy.Field()
-    weight_class_id = scrapy.Field()
-    rounds_format = scrapy.Field()
-    fight_order = scrapy.Field()
+@dataclass
+class FightItem:
+    item_type: str
+    fight_id: str  # PK
+    event_id: str  # FK -> EventItem
+    method_type: str | None = None
+    method_detail: str | None = None
+    round_summary: str | None = None
+    bout_type: str | None = None
+    weight_class_lbs: str | None = None
+    weight_class_id: str | None = None
+    rounds_format: str | None = None
+    fight_order: str | None = None
 
 
-class FighterItem(scrapy.Item):
-    item_type = scrapy.Field()
-    fighter_id = scrapy.Field()  # PK
-    name = scrapy.Field()
-    nickname = scrapy.Field()
-    record = scrapy.Field()
-    date_of_birth = scrapy.Field()
-    height = scrapy.Field()
-    reach = scrapy.Field()
-    weight_class_id = scrapy.Field()
-    born = scrapy.Field()
-    fighting_out_of = scrapy.Field()
-    style = scrapy.Field()
-    country_code = scrapy.Field()
-    profile_url = scrapy.Field()
-    image_url = scrapy.Field()
+@dataclass
+class FighterItem:
+    item_type: str
+    fighter_id: str  # PK
+    name: str | None = None
+    nickname: str | None = None
+    record: dict | None = None
+    date_of_birth: str | None = None
+    height: dict | None = None
+    reach: dict | None = None
+    weight_class_id: str | None = None
+    born: str | None = None
+    fighting_out_of: str | None = None
+    style: str | None = None
+    country_code: str | None = None
+    profile_url: str | None = None
+    image_url: str | None = None
 
 
-class FightParticipationItem(scrapy.Item):
-    item_type = scrapy.Field()
-    fight_id = scrapy.Field()  # FK -> FightItem
-    fighter_id = scrapy.Field()  # FK -> FighterItem
-    odds_value = scrapy.Field()
-    odds_label = scrapy.Field()
-    result = scrapy.Field()
-    record_after_fight = scrapy.Field()
-    is_red_corner = scrapy.Field()
+@dataclass
+class ParticipantItem:
+    item_type: str
+    fight_id: str  # FK -> FightItem
+    fighter_id: str  # FK -> FighterItem
+    odds_value: int | None = None
+    odds_label: str | None = None
+    result: str | None = None
+    record_after_fight: dict | None = None
+    is_red_corner: bool | None = None
