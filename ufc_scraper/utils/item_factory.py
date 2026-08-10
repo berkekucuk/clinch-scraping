@@ -83,3 +83,33 @@ def create_participation_items(
         participation["is_red_corner"] = fighter_data.get("is_red_corner")
         items.append(participation)
     return items
+
+
+def create_fighter_update_item(
+    fighter_id,
+    nickname,
+    record,
+    date_of_birth,
+    height,
+    reach,
+    weight_class_id,
+    born,
+    fighting_out_of,
+    style,
+    country_code,
+):
+    fighter_item = FighterItem()
+    fighter_item['item_type'] = "fighter_update"
+    fighter_item['fighter_id'] = fighter_id
+    fighter_item['nickname'] = nickname
+    fighter_item['record'] = record
+    fighter_item['date_of_birth'] = date_of_birth
+    fighter_item['height'] = height
+    fighter_item['reach'] = reach
+    fighter_item['weight_class_id'] = weight_class_id
+    fighter_item['born'] = born
+    fighter_item['fighting_out_of'] = fighting_out_of
+    fighter_item['style'] = style
+    fighter_item['country_code'] = country_code
+    return fighter_item
+
