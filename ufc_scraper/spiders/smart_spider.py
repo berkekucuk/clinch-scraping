@@ -1,8 +1,8 @@
 import scrapy
-from urllib.parse import urljoin
-from ..utils.url_parser import UrlParser
+from ..utils.url_parser import extract_event_id
 from ..services.supabase_manager import SupabaseManager
-from ..parsers.event_page_parser import EventPageParser
+from ..parsers.event_page_parser import parse_card
+from ..parsers.event_list_parser import parse_events_from_list
 
 class SmartSpider(scrapy.Spider):
     name = "smart"
@@ -25,7 +25,7 @@ class SmartSpider(scrapy.Spider):
                 self.logger.info(f"Event {event_id} is UPCOMING (From DB). Scheduling full page scrape.")
                 yield scrapy.Request(
                     url=event_url,
-                    callback=EventPageParser.parse_card,
+                    callback=parse_card,
                     cb_kwargs={"event_id": event_id, "event_url": event_url},
                 )
 
@@ -42,7 +42,7 @@ class SmartSpider(scrapy.Spider):
                 self.logger.error("[LIVE MODE] event_url parameter is required. Usage: -a mode=live -a event_url=...")
                 return
 
-            event_id = UrlParser.extract_event_id(self.event_url)
+            event_id = extract_event_id(self.event_url)
             if not event_id:
                 self.logger.error(f"[LIVE MODE] Could not extract event_id from URL: {self.event_url}")
                 return
@@ -50,7 +50,7 @@ class SmartSpider(scrapy.Spider):
             self.logger.info(f"[LIVE MODE] Scraping live event: {event_id}")
             yield scrapy.Request(
                 url=self.event_url,
-                callback=EventPageParser.parse_card,
+                callback=parse_card,
                 cb_kwargs={"event_id": event_id, "event_url": self.event_url, "is_live_mode": True},
             )
 
@@ -59,7 +59,7 @@ class SmartSpider(scrapy.Spider):
                 self.logger.error("[SINGLE MODE] event_url parameter is required. Usage: -a mode=single -a event_url=...")
                 return
 
-            event_id = UrlParser.extract_event_id(self.event_url)
+            event_id = extract_event_id(self.event_url)
             if not event_id:
                 self.logger.error(f"[SINGLE MODE] Could not extract event_id from URL: {self.event_url}")
                 return
@@ -67,7 +67,7 @@ class SmartSpider(scrapy.Spider):
             self.logger.info(f"[SINGLE MODE] Scraping event: {event_id}")
             yield scrapy.Request(
                 url=self.event_url,
-                callback=EventPageParser.parse_card,
+                callback=parse_card,
                 cb_kwargs={"event_id": event_id, "event_url": self.event_url, "is_live_mode": False},
             )
 
@@ -75,29 +75,7 @@ class SmartSpider(scrapy.Spider):
             self.logger.error(f"Unknown mode: {self.mode}")
 
     async def parse_new_events(self, response):
-        events = response.css('div[data-controller="bout-toggler"]')
-        self.logger.info(f"Found {len(events)} events on page {response.url}")
-
-        event_data_list = []
-        for event in events:
-            event_relative_url = event.css("div.promotion a::attr(href)").get(default="")
-            if not event_relative_url:
-                continue
-
-            event_name = event.css("div.promotion a::text").get(default="").strip()
-
-            if event_name.startswith("Road to UFC"):
-                self.logger.info(f"Skipping Road to UFC event: {event_name}")
-                continue
-
-            event_url = urljoin("https://www.tapology.com", event_relative_url)
-            event_id = UrlParser.extract_event_id(event_relative_url)
-
-            if not event_id:
-                self.logger.error(f"Could not extract event_id from: {event_relative_url}")
-                continue
-
-            event_data_list.append({"event_id": event_id, "event_url": event_url})
+        event_data_list = parse_events_from_list(response)
 
         if event_data_list:
             event_ids = [item["event_id"] for item in event_data_list]
@@ -123,6 +101,6 @@ class SmartSpider(scrapy.Spider):
                 self.logger.info(f"Event {event_id} is NEW. Scheduling full page scrape.")
                 yield scrapy.Request(
                     url=event_url,
-                    callback=EventPageParser.parse_card,
+                    callback=parse_card,
                     cb_kwargs={"event_id": event_id, "event_url": event_url},
                 )

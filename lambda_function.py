@@ -94,8 +94,6 @@ def handler(event, context):
                      logger.warning(f"[TASK:{task_type}] Missing profile_url or fighter_id. Skipping.")
                      return {"statusCode": 400, "body": "Missing data"}
 
-                logger.info(f"[TASK:{task_type}] Scraping fighter: {fighter_id} from {profile_url}")
-
                 subprocess.run([
                     "scrapy", "crawl", "fighter",
                     "-a", f"profile_url={profile_url}",
@@ -103,7 +101,6 @@ def handler(event, context):
                     "--loglevel", "INFO"
                 ], check=True)
 
-                logger.info(f"[TASK:{task_type}] Scrape finished for fighter {fighter_id}.")
                 return {"statusCode": 200, "body": f"Scrape finished for {fighter_id}"}
 
             else:
