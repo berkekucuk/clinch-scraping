@@ -12,10 +12,9 @@ class DatabasePipeline:
         self.event_buffer = {}
         self.fight_buffer = {}
         self.fighter_buffer = {}
+        self.fighter_update_buffer = {}
         self.participation_buffer = {}
         self.ranking_buffer = {}
-
-        self.has_fighter_updates = False
 
 
     async def process_item(self, item):
@@ -41,13 +40,14 @@ class DatabasePipeline:
         elif item_type == "fighter":
             fighter_id = item_data.get("fighter_id")
             if fighter_id:
-                self.fighter_buffer[fighter_id] = item_data
+                # Filter out None values to prevent overwriting existing rich biography details in DB
+                self.fighter_buffer[fighter_id] = {k: v for k, v in item_data.items() if v is not None}
 
         elif item_type == "fighter_update":
             fighter_id = item_data.get("fighter_id")
             if fighter_id:
-                self.fighter_buffer[fighter_id] = item_data
-                self.has_fighter_updates = True
+                # Filter out None values to prevent overwriting existing rich biography details in DB
+                self.fighter_update_buffer[fighter_id] = {k: v for k, v in item_data.items() if v is not None}
 
         elif item_type == "participation":
             fight_id = item_data.get("fight_id")
@@ -67,7 +67,8 @@ class DatabasePipeline:
         self.logger.info(f"[BATCH START] Processing buffered items: "
                          f"{len(self.event_buffer)} events, "
                          f"{len(self.fight_buffer)} fights, "
-                         f"{len(self.fighter_buffer)} fighters, "
+                         f"{len(self.fighter_buffer)} basic fighters, "
+                         f"{len(self.fighter_update_buffer)} fighter updates, "
                          f"{len(self.participation_buffer)} participations")
 
         await self._flush_all()
@@ -75,23 +76,35 @@ class DatabasePipeline:
 
     async def _flush_all(self):
         if self.event_buffer:
-            await self.supabase.bulk_upsert("events", list(self.event_buffer.values()))
+            await self.supabase.bulk_upsert(
+                "events",
+                list(self.event_buffer.values())
+            )
             self.event_buffer.clear()
 
         if self.fighter_buffer:
-            should_ignore_duplicates = not self.has_fighter_updates
-            mode_msg = "INSERT ONLY" if should_ignore_duplicates else "UPDATE"
-            self.logger.info(f"[FIGHTERS] Processing {len(self.fighter_buffer)} fighters in {mode_msg} mode.")
+            self.logger.info(f"[FIGHTERS] Inserting {len(self.fighter_buffer)} new fighters (ON CONFLICT DO NOTHING).")
             await self.supabase.bulk_upsert(
                 "fighters",
                 list(self.fighter_buffer.values()),
-                ignore_duplicates=should_ignore_duplicates
+                ignore_duplicates=True
             )
             self.fighter_buffer.clear()
-            self.has_fighter_updates = False
+
+        if self.fighter_update_buffer:
+            self.logger.info(f"[FIGHTER UPDATES] Updating {len(self.fighter_update_buffer)} biography details (ON CONFLICT DO UPDATE).")
+            await self.supabase.bulk_upsert(
+                "fighters",
+                list(self.fighter_update_buffer.values()),
+                ignore_duplicates=False
+            )
+            self.fighter_update_buffer.clear()
 
         if self.fight_buffer:
-            await self.supabase.bulk_upsert("fights", list(self.fight_buffer.values()))
+            await self.supabase.bulk_upsert(
+                "fights",
+                list(self.fight_buffer.values())
+            )
             self.fight_buffer.clear()
 
         if self.participation_buffer:
