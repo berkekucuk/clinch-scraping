@@ -74,6 +74,7 @@ class SupabaseManager:
             
             self.logger.info(f"Fetched {len(response.data)} upcoming events from DB")
             return response.data
+
         except Exception as e:
             self.logger.error(f"Failed to get upcoming events: {e}")
             return []
@@ -94,6 +95,7 @@ class SupabaseManager:
 
             if response.data:
                 return response.data[0].get("status", "live").lower()
+
         except Exception as e:
             self.logger.error(f"Supabase status check failed: {e}")
 
@@ -120,3 +122,16 @@ class SupabaseManager:
         except Exception as e:
             self.logger.error(f"Failed to load fighter cache: {e}")
             return {}
+
+
+    async def get_live_sliding_fights(self, event_id: str, window_size: int = 3) -> list[dict]:
+        try:
+            response = await self.client.rpc(
+                "get_live_sliding_fights",
+                {"p_event_id": event_id, "p_window_size": window_size}
+            ).execute()
+            return response.data or []
+
+        except Exception as e:
+            self.logger.error(f"[LIVE RPC] Failed to get sliding fights for event {event_id}: {e}")
+            return []

@@ -48,6 +48,7 @@ def handler(event, context):
 
                 logger.info(f"[TASK:{task_type}] Scraping live event: {event_id} (completed_runs: {completed_runs})")
 
+                # 1. Tapology Live Card Scraper
                 subprocess.run([
                     "scrapy", "crawl", "smart",
                     "-a", "mode=live",
@@ -55,7 +56,18 @@ def handler(event, context):
                     "--loglevel", "INFO"
                 ], check=True)
 
-                logger.info(f"[TASK:{task_type}] Scraper finished for '{event_id}'.")
+                # 2. UFCStats Live Fight Stats Scraper (3-fight sliding window)
+                try:
+                    subprocess.run([
+                        "scrapy", "crawl", "stats",
+                        "-a", "mode=live",
+                        "-a", f"event_id={event_id}",
+                        "--loglevel", "INFO"
+                    ], check=True)
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"[TASK:{task_type}] Stats live scraper error: {e}")
+
+                logger.info(f"[TASK:{task_type}] Both live scrapers finished for '{event_id}'.")
 
                 current_status = SupabaseManager().get_event_status(event_id)
 
