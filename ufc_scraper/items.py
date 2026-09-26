@@ -16,7 +16,7 @@ class EventItem:
 class FightItem:
     item_type: str
     fight_id: str  # PK
-    event_id: str  # FK -> EventItem
+    event_id: str | None = None  # FK -> EventItem
     method_type: str | None = None
     method_detail: str | None = None
     round_summary: str | None = None

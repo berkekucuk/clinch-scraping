@@ -6,4 +6,3 @@ itemadapter==0.13.1
 tldextract==5.3.1
 scrapy-zyte-api==0.35.0
 curl-cffi==0.16.3
-beautifulsoup4==4.15.0

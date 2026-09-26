@@ -1,6 +1,6 @@
 import scrapy
 from ..services.supabase_manager import SupabaseManager
-from ..parsers.stats_fight_parser import parse_live_fight_details
+from ..parsers.fight_stats_parser import parse_live_fight_details
 
 
 class StatsSpider(scrapy.Spider):
