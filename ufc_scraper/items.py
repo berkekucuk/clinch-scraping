@@ -25,6 +25,9 @@ class FightItem:
     weight_class_id: str | None = None
     rounds_format: str | None = None
     fight_order: str | None = None
+    title_type: str | None = None
+    referee: str | None = None
+    bonuses: list[str] | None = None
 
 
 @dataclass
@@ -65,3 +68,35 @@ class RankingItem:
     fighter_id: str
     rank_number: int
     rank_change: int | None = None
+
+
+@dataclass
+class FightStatItem:
+    item_type: str
+    ufcstats_fight_id: str
+    ufcstats_fighter_id: str
+    round: int = 0
+    fight_id: str | None = None
+    fighter_id: str | None = None
+    knockdowns: int = 0
+    total_strikes_landed: int = 0
+    total_strikes_attempted: int = 0
+    sig_strikes_landed: int = 0
+    sig_strikes_attempted: int = 0
+    takedowns_landed: int = 0
+    takedowns_attempted: int = 0
+    submission_attempts: int = 0
+    reversals: int = 0
+    control_time_seconds: int = 0
+    head_landed: int = 0
+    head_attempted: int = 0
+    body_landed: int = 0
+    body_attempted: int = 0
+    leg_landed: int = 0
+    leg_attempted: int = 0
+    distance_landed: int = 0
+    distance_attempted: int = 0
+    clinch_landed: int = 0
+    clinch_attempted: int = 0
+    ground_landed: int = 0
+    ground_attempted: int = 0
