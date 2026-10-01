@@ -135,3 +135,17 @@ class SupabaseManager:
         except Exception as e:
             self.logger.error(f"[LIVE RPC] Failed to get sliding fights for event {event_id}: {e}")
             return []
+
+    async def get_event_fights_with_participants(self, event_id: str) -> list[dict]:
+        try:
+            res = await self.client.table("fights")\
+                .select("fight_id, fight_order, ufcstats_id, participants(fighter_id, fighters(name, ufcstats_id))")\
+                .eq("event_id", event_id)\
+                .not_.is_("ufcstats_id", "null")\
+                .not_.in_("bout_type", ["cancelled", "fizzled", "Cancelled", "Fizzled"])\
+                .order("fight_order", desc=False)\
+                .execute()
+            return res.data or []
+        except Exception as e:
+            self.logger.error(f"Failed to get fights for event {event_id}: {e}")
+            return []

@@ -13,13 +13,15 @@ class StatsJsonPipeline:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.fights: list[dict] = []
         self.fight_stats: list[dict] = []
+        self.spider_name: str | None = None
 
-    def open_spider(self, spider):
+    def open_spider(self, spider=None):
+        self.spider_name = spider.name if spider else "stats"
         self.fights.clear()
         self.fight_stats.clear()
-        self.logger.info(f"[StatsJsonPipeline] Initialized pipeline for spider: {spider.name}")
+        self.logger.info(f"[StatsJsonPipeline] Initialized pipeline for spider: {self.spider_name}")
 
-    def process_item(self, item, _spider):
+    def process_item(self, item, spider=None):
         adapter = ItemAdapter(item)
         item_type = adapter.get("item_type")
 
@@ -36,7 +38,7 @@ class StatsJsonPipeline:
 
         return item
 
-    def close_spider(self, spider):
+    def close_spider(self, spider=None):
         output = {
             "fights": self.fights,
             "fight_stats": self.fight_stats
@@ -47,6 +49,6 @@ class StatsJsonPipeline:
             json.dump(output, f, ensure_ascii=False, indent=2, default=str)
 
         self.logger.info(
-            f"[StatsJsonPipeline] ({spider.name}) Saved {len(self.fights)} fights and "
+            f"[StatsJsonPipeline] ({self.spider_name}) Saved {len(self.fights)} fights and "
             f"{len(self.fight_stats)} fight stats to {filename}"
         )
