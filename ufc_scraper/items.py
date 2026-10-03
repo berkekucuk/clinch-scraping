@@ -34,6 +34,7 @@ class FightItem:
 class FighterItem:
     item_type: str
     fighter_id: str  # PK
+    ufcstats_id: str | None = None
     name: str | None = None
     nickname: str | None = None
     record: dict | None = None

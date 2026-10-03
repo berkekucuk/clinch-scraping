@@ -58,7 +58,7 @@ def normalize_name(val: str) -> str:
     return "".join(c for c in val.lower() if c.isalnum())
 
 
-def is_name_match(name1: str, name2: str, threshold: float = 0.8) -> bool:
+def is_name_match(name1: str, name2: str, threshold: float = 0.7) -> bool:
     """Performs fuzzy & substring matching between two fighter names."""
     n1 = normalize_name(name1)
     n2 = normalize_name(name2)

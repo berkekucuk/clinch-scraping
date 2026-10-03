@@ -1,6 +1,6 @@
 import logging
 
-from ..items import FightItem, FightStatItem
+from ..items import FightItem, FightStatItem, FighterItem
 from ..utils.stats_parser import (
     is_name_match,
     parse_control_time,
@@ -15,14 +15,16 @@ logger = logging.getLogger(__name__)
 # 1. Fighter & Fight Metadata Extractors
 # ==========================================
 
-def build_fighter_id_map(response, supabase_fight: dict) -> dict[str, str]:
-    """Maps UFCStats ufcstats_fighter_id to Supabase fighter_id using Scrapy CSS selectors and name matching."""
+def build_fighter_id_map(response, supabase_fight: dict) -> tuple[dict[str, str], list[FighterItem]]:
+    """Maps UFCStats ufcstats_fighter_id to Supabase fighter_id using Scrapy CSS selectors and name matching.
+    Also returns FighterItem updates for fighters whose ufcstats_id was missing in database."""
     participants = supabase_fight.get("participants", [])
     ufcstats_to_fighter_id_map: dict[str, str] = {}
+    fighter_updates: list[FighterItem] = []
 
     # 1. Primary: Direct ufcstats_id match from database
     for participant in participants:
-        fighter_info = participant.get("fighters")
+        fighter_info = participant.get("fighters") or {}
         fighter_id = participant.get("fighter_id")
         ufcstats_fighter_id = fighter_info.get("ufcstats_id")
         if ufcstats_fighter_id and fighter_id:
@@ -40,15 +42,30 @@ def build_fighter_id_map(response, supabase_fight: dict) -> dict[str, str]:
         web_name = person.css("a.b-link::text").get() or ""
 
         for participant in participants:
+            fighter_info = participant.get("fighters") or {}
             fighter_id = participant.get("fighter_id")
-            fighter_info = participant.get("fighters")
             db_name = fighter_info.get("name")
+            existing_ufcstats_id = fighter_info.get("ufcstats_id")
 
             if is_name_match(web_name, db_name):
                 ufcstats_to_fighter_id_map[ufcstats_id] = fighter_id
+
+                # If fighter does not have ufcstats_id in DB, queue an automatic update
+                if not existing_ufcstats_id and fighter_id:
+                    logger.info(
+                        f"[FIGHTER SYNC] Discovered ufcstats_id '{ufcstats_id}' for fighter '{db_name}' ({fighter_id}). "
+                        f"Queuing automatic update to Supabase."
+                    )
+                    fighter_updates.append(
+                        FighterItem(
+                            item_type="fighter_update",
+                            fighter_id=fighter_id,
+                            ufcstats_id=ufcstats_id,
+                        )
+                    )
                 break
 
-    return ufcstats_to_fighter_id_map
+    return ufcstats_to_fighter_id_map, fighter_updates
 
 
 def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
@@ -244,8 +261,10 @@ def parse_live_fight_details(
     """
     logger.info(f"[LIVE FIGHT PARSER] Parsing fight details: {response.url} (Fight ID: {fight_id})")
 
-    # 1. Build Fighter ID Mapping
-    ufcstats_to_fighter_id_map = build_fighter_id_map(response, supabase_fight)
+    # 1. Build Fighter ID Mapping & discover missing ufcstats_ids
+    ufcstats_to_fighter_id_map, fighter_updates = build_fighter_id_map(response, supabase_fight)
+    for update_item in fighter_updates:
+        yield update_item
 
     # 2. Extract Fight Statistics Tables (Totals & Significant Strikes)
     stat_items = extract_fight_stat_items(response, ufcstats_fight_id, fight_id, ufcstats_to_fighter_id_map)
