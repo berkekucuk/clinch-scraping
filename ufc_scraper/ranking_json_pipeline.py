@@ -4,26 +4,37 @@ from itemadapter import ItemAdapter
 
 
 class RankingJsonPipeline:
+    """
+    Pipeline to export RankingItem outputs to rankings_output.json
+    for testing and verification purposes.
+    """
 
-    def open_spider(self, spider):
-        if spider.name != "ranking":
-            return
-        self.items = []
+    def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.rankings: list[dict] = []
+        self.spider_name: str | None = None
 
-    def process_item(self, item, spider):
-        if spider.name != "ranking":
-            return item
+    def open_spider(self, spider=None):
+        self.spider_name = spider.name if spider else "ranking"
+        self.rankings.clear()
+        self.logger.info(f"[RankingJsonPipeline] Initialized pipeline for spider: {self.spider_name}")
+
+    def process_item(self, item, spider=None):
         adapter = ItemAdapter(item)
-        if adapter.get("item_type") == "ranking":
+        item_type = adapter.get("item_type")
+
+        if item_type == "ranking":
             data = adapter.asdict()
             data.pop("item_type", None)
-            self.items.append(data)
+            self.rankings.append(data)
+
         return item
 
-    def close_spider(self, spider):
-        if spider.name != "ranking":
-            return
-        with open("rankings_output.json", "w", encoding="utf-8") as f:
-            json.dump(self.items, f, ensure_ascii=False, indent=2, default=str)
-        self.logger.info(f"[RankingJsonPipeline] Wrote {len(self.items)} rankings to rankings_output.json")
+    def close_spider(self, spider=None):
+        filename = "rankings_output.json"
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(self.rankings, f, ensure_ascii=False, indent=2, default=str)
+
+        self.logger.info(
+            f"[RankingJsonPipeline] ({self.spider_name}) Saved {len(self.rankings)} rankings to {filename}"
+        )

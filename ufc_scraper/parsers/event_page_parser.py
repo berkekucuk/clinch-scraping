@@ -58,6 +58,13 @@ def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False
 
     ### Fight summary ###
     fight_summary_div = web_view.xpath(".//div[contains(@class, 'flex w-full mt-1 mb-0.5 px-1.5')]")
+
+    # Title type extraction (undisputed / interim)
+    title_span_text = fight_summary_div.css("span.leading-none:not(.uppercase)::text").get(default="").strip().lower()
+    title_type = None
+    if "championship" in title_span_text or "title" in title_span_text:
+        title_type = "interim" if "interim" in title_span_text else "undisputed"
+
     method_str = fight_summary_div.css("span.uppercase::text").get(default="").strip()
     method_parsed = split_method(method_str)
     method_type = method_parsed["method_type"]
@@ -109,6 +116,7 @@ def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False
         weight_class_id=weight_class_id,
         rounds_format=rounds_format,
         fight_order=fight_order,
+        title_type=title_type,
     )
 
     if not is_live_mode:

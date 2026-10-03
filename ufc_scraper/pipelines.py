@@ -15,6 +15,7 @@ class DatabasePipeline:
         self.fighter_update_buffer = {}
         self.participation_buffer = {}
         self.ranking_buffer = {}
+        self.fight_stat_buffer = {}
 
 
     async def process_item(self, item):
@@ -35,7 +36,8 @@ class DatabasePipeline:
         elif item_type == "fight":
             fight_id = item_data.get("fight_id")
             if fight_id:
-                self.fight_buffer[fight_id] = item_data
+                # Filter out None values to prevent overwriting existing fight details in DB
+                self.fight_buffer[fight_id] = {k: v for k, v in item_data.items() if v is not None}
 
         elif item_type == "fighter":
             fighter_id = item_data.get("fighter_id")
@@ -60,6 +62,11 @@ class DatabasePipeline:
             if key[0] and key[1] is not None:
                 self.ranking_buffer[key] = item_data
 
+        elif item_type == "fight_stat":
+            key = (item_data.get("ufcstats_fight_id"), item_data.get("ufcstats_fighter_id"), item_data.get("round"))
+            if all(k is not None for k in key):
+                self.fight_stat_buffer[key] = item_data
+
         return item
 
 
@@ -70,7 +77,8 @@ class DatabasePipeline:
                          f"{len(self.fighter_buffer)} fighters, "
                          f"{len(self.fighter_update_buffer)} fighter updates, "
                          f"{len(self.participation_buffer)} participations, "
-                         f"{len(self.ranking_buffer)} rankings")
+                         f"{len(self.ranking_buffer)} rankings, "
+                         f"{len(self.fight_stat_buffer)} fight stats")
 
         await self._flush_all()
 
@@ -123,5 +131,14 @@ class DatabasePipeline:
                 on_conflict="weight_class_id,rank_number"
             )
             self.ranking_buffer.clear()
+
+        if self.fight_stat_buffer:
+            self.logger.info(f"[FIGHT STATS] Upserting {len(self.fight_stat_buffer)} fight stat rows.")
+            await self.supabase.bulk_upsert(
+                "fight_stats",
+                list(self.fight_stat_buffer.values()),
+                on_conflict="ufcstats_fight_id, ufcstats_fighter_id, round"
+            )
+            self.fight_stat_buffer.clear()
 
         self.logger.info("[BATCH END] All items processed successfully.")
