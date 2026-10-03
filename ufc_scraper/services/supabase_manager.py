@@ -149,3 +149,15 @@ class SupabaseManager:
         except Exception as e:
             self.logger.error(f"Failed to get fights for event {event_id}: {e}")
             return []
+
+    def recalculate_event_fighters_stats(self, event_id: str) -> None:
+        if not self.url or not self.key:
+            self.logger.warning("Supabase credentials missing.")
+            return
+
+        try:
+            client = create_client(self.url, self.key)
+            client.rpc("recalculate_event_fighters_stats", {"p_event_id": event_id}).execute()
+            self.logger.info(f"Successfully recalculated career stats for all fighters in event: {event_id}")
+        except Exception as e:
+            self.logger.error(f"Failed to recalculate career stats for event {event_id}: {e}")

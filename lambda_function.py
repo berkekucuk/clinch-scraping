@@ -78,6 +78,13 @@ def handler(event, context):
                         return {"statusCode": 200, "step_status": "IN_PROGRESS", "completed_runs": next_run}
                     else:
                         logger.info(f"[TASK:{task_type}] Event {event_id} is COMPLETED and all 3 extra runs are done. Finishing loop.")
+
+                        # Recalculate career stats for all fighters once live scraping is 100% complete
+                        try:
+                            SupabaseManager().recalculate_event_fighters_stats(event_id)
+                        except Exception as e:
+                            logger.error(f"[TASK:{task_type}] Failed to recalculate career stats for event {event_id}: {e}")
+
                         return {"statusCode": 200, "step_status": "COMPLETED", "completed_runs": completed_runs}
                 else:
                     logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS.")
