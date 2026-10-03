@@ -53,7 +53,6 @@ def build_fighter_id_map(response, supabase_fight: dict) -> dict[str, str]:
 
 def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
     """Extracts title_type, referee and bonuses into a FightItem using CSS selectors."""
-    title_type = None
     bonuses = []
 
     # 1. Fight Title, Title Belt, and Bonuses
@@ -70,12 +69,6 @@ def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
             elif "ko.png" in src:
                 bonuses.append("KO")
 
-        title_text = "".join(title_tag.css("::text").getall()).lower()
-        is_tournament = any(kw in title_text for kw in ("tournament", "ultimate fighter", "tuf"))
-
-        if not is_tournament and "title bout" in title_text:
-            title_type = "interim" if "interim" in title_text else "undisputed"
-
     # 2. Referee
     ref_text = response.xpath("//i[contains(text(), 'Referee:')]/following-sibling::span/text()").get()
     referee = ref_text.strip() if ref_text and ref_text.strip() else None
@@ -83,7 +76,6 @@ def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
     return FightItem(
         item_type="fight",
         fight_id=fight_id,
-        title_type=title_type,
         referee=referee,
         bonuses=bonuses if bonuses else None
     )
