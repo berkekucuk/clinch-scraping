@@ -11,7 +11,7 @@ def parse_fighter_div(fighter_div, response, is_first_fighter=True):
     relative_url = fighter_div.css("a.link-primary-red::attr(href)").get(default="").strip()
     profile_url = response.urljoin(relative_url) if relative_url else None
     fighter_id = extract_fighter_id(relative_url) if relative_url else None
-    image_url = fighter_div.css(f"div.relative.{css_class} img::attr(src)").get(default="").strip() or None
+    image_url = fighter_div.css(f"div.relative.{css_class} img::attr(src)").get(default="").strip().replace("/preview/", "/large/") or None
     result = determine_fight_result(fighter_div)
 
     record_after_fight = None
