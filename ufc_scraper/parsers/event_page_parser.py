@@ -48,9 +48,8 @@ def parse_card(response, event_id, event_url, is_live_mode=False):
         fight_order_number = total_fights - index + 1
         yield from parse_single_fight(fight, response, event_id, fight_order_number, is_live_mode)
 
-    if not is_live_mode:
-        for cancelled_fight in cancelled_fights:
-            yield from parse_cancelled_fight(cancelled_fight, response, event_id)
+    for cancelled_fight in cancelled_fights:
+        yield from parse_cancelled_fight(cancelled_fight, response, event_id, is_live_mode)
 
 
 def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False):

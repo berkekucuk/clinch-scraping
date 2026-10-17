@@ -2,7 +2,7 @@ from ..items import FightItem, FighterItem, ParticipantItem
 from ..utils.url_parser import extract_fight_id, extract_fighter_id
 
 
-def parse_cancelled_fight(cancelled_fight_div, response, event_id: str):
+def parse_cancelled_fight(cancelled_fight_div, response, event_id: str, is_live_mode=False):
 
     ### Fight metadata ###
     middle_div = cancelled_fight_div.xpath('.//div[@data-controller="tooltip"]')
@@ -37,17 +37,18 @@ def parse_cancelled_fight(cancelled_fight_div, response, event_id: str):
     )
 
     # Yield FighterItems
-    for f_id, f_name, f_url, f_img in [
-        (fighter1_id, fighter1_name, fighter1_profile_url, fighter1_img),
-        (fighter2_id, fighter2_name, fighter2_profile_url, fighter2_img),
-    ]:
-        yield FighterItem(
-            item_type="fighter",
-            fighter_id=f_id,
-            name=f_name,
-            profile_url=f_url,
-            image_url=f_img,
-        )
+    if not is_live_mode:
+        for f_id, f_name, f_url, f_img in [
+            (fighter1_id, fighter1_name, fighter1_profile_url, fighter1_img),
+            (fighter2_id, fighter2_name, fighter2_profile_url, fighter2_img),
+        ]:
+            yield FighterItem(
+                item_type="fighter",
+                fighter_id=f_id,
+                name=f_name,
+                profile_url=f_url,
+                image_url=f_img,
+            )
 
     # Yield ParticipationItems
     yield ParticipantItem(

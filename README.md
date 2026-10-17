@@ -42,7 +42,7 @@ All triggers are fully automated. Scheduled EventBridge cron rules, the Event Da
             ▼                   ▼                    ▼                  ▼                 ▼
          ✅ Done             ✅ Done         ┌───────────────┐       ✅ Done           ✅ Done
                                              │RunLiveScraper │
-                                             │               │◄─────────────┐
+                                             │(card + stats) │◄─────────────┐
                                              └───────┬───────┘              │
                                                      │                      │
                                                      ▼                      │
@@ -52,8 +52,11 @@ All triggers are fully automated. Scheduled EventBridge cron rules, the Event Da
                                                    │      │                 │
                                           COMPLETED│      │IN_PROGRESS      │
                                                    │      ▼                 │
-                                                   │  WaitForRandomSeconds  │
-                                                   │   (90–150s jitter) ────┘
+                                                   │     Wait ──────────────┘
+                                                   ▼
+                                     3 extra runs after completion,
+                                     then career stats recalculation
+                                                   │
                                                    ▼
                                                ✅ Done
 ```
@@ -69,7 +72,9 @@ Fetches the upcoming events from the database (up to 4 events) and refreshes the
 Once per day, it scrapes the data provider event list and schedules full-page scrapes only for events not already in the database.
 
 ### 3. Live Mode (`step_function_loop`)
-When a new event is inserted or its `datetime_utc` value changes, Supabase sends a webhook to the Event Date Gatekeeper Lambda. The Lambda starts a Step Functions execution with the `step_function_loop` payload. The state machine waits until the scheduled start time, then invokes Lambda in live mode at intervals determined by jitter until the event status changes to `completed`.
+When a new event is inserted or its `datetime_utc` value changes, Supabase sends a webhook to the Event Date Gatekeeper Lambda. The Lambda starts a Step Functions execution with the `step_function_loop` payload. The state machine waits until the scheduled start time, then invokes Lambda in live mode repeatedly, with a wait between runs, until the event status changes to `completed`.
+
+Each live run updates the fight card and scrapes live fight statistics. After the event is completed, a few extra runs pick up late corrections and fighter career stats are recalculated.
 
 ### 4. Fighter Detail Mode (`fighter_scrape`)
 Triggered by a **Supabase database webhook** whenever a new fighter row is inserted. Scrapes the fighter's profile page to enrich the record with bio data (nationality, height, weight, etc.).
@@ -77,16 +82,19 @@ Triggered by a **Supabase database webhook** whenever a new fighter row is inser
 ### 5. Ranking Mode (`ranking`)
 Stores up-to-date ranking positions, champion statuses, and rank changes directly in the database.
 
+### 6. Fight Stats Event Mode (manual)
+Scrapes fight statistics for a past event.
+
 ---
 
 ## Anti-Bot Strategy
 
-The project utilizes **Zyte API** as its primary proxy and request unblocking service to easily bypass Cloudflare protections on target sites.
+The project uses **Zyte API** as its primary proxy and request unblocking service to bypass Cloudflare protections on target sites.
 
 | Technique | How |
 |---|---|
 | **Zyte API (Primary)** | Managed request unblocking and proxy rotation, configured transparently via `scrapy-zyte-api` middleware. |
-| **TLS/HTTP2 Fingerprinting (Legacy/Fallback)** | In older versions, `scrapy-impersonate` was used to mimic real browser handshakes via `curl_cffi`. This remains supported as a local fallback option if needed. |
+| **Browser Impersonation** | Used for the stats provider: a custom middleware mimics a real browser via `curl_cffi`. |
 
 ---
 
@@ -96,7 +104,7 @@ The project utilizes **Zyte API** as its primary proxy and request unblocking se
 |---|---|
 | Language | Python 3.12 |
 | Scraping Framework | Scrapy |
-| Unblocking & Proxies | Zyte API (primary), `scrapy-impersonate` (legacy/fallback) |
+| Unblocking & Proxies | Zyte API (primary), `curl_cffi` impersonation (stats provider) |
 | Database | Supabase (PostgreSQL) |
 | Deployment | Docker + AWS Lambda |
 | Orchestration | AWS Step Functions + EventBridge |
