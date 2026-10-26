@@ -18,7 +18,9 @@ class SupabaseManager:
 
         try:
             self.client = AsyncClient(self.url, self.key)
-            self.logger.info("Supabase client initialized (Async)")
+            self.sync_client = create_client(self.url, self.key)
+            self.logger.info("Supabase clients initialized (Async + Sync)")
+
         except Exception as e:
             self.logger.error(f"Failed to initialize Supabase client: {e}")
             raise e
@@ -80,26 +82,33 @@ class SupabaseManager:
             return []
 
 
-    def get_event_status(self, event_id: str) -> str:
-        if not self.url or not self.key:
-            self.logger.warning("Supabase credentials missing.")
-            return "live"
-
+    def has_unfinished_fights(self, event_id: str) -> bool:
         try:
-            client = create_client(self.url, self.key)
-            response = client.table("events") \
-                .select("status") \
-                .eq("event_id", event_id) \
-                .limit(1) \
-                .execute()
-
-            if response.data:
-                return response.data[0].get("status", "live").lower()
+            response = self.sync_client.rpc("has_unfinished_fights", {"p_event_id": event_id}).execute()
+            return response.data is not False
 
         except Exception as e:
-            self.logger.error(f"Supabase status check failed: {e}")
+            self.logger.error(f"Supabase unfinished fights check failed: {e}")
+            return True
 
-        return "live"
+
+    def mark_event_completed(self, event_id: str) -> bool:
+        try:
+            response = self.sync_client.table("events") \
+                .update({"status": "Completed"}) \
+                .eq("event_id", event_id) \
+                .execute()
+
+            if not response.data:
+                self.logger.error(f"No event row updated for {event_id}.")
+                return False
+
+            self.logger.info(f"Marked event {event_id} as Completed.")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to mark event {event_id} as Completed: {e}")
+            return False
 
 
     async def load_fighter_cache(self):
@@ -136,6 +145,7 @@ class SupabaseManager:
             self.logger.error(f"[LIVE RPC] Failed to get sliding fights for event {event_id}: {e}")
             return []
 
+
     async def get_event_fights_with_participants(self, event_id: str) -> list[dict]:
         try:
             res = await self.client.table("fights")\
@@ -146,18 +156,16 @@ class SupabaseManager:
                 .order("fight_order", desc=False)\
                 .execute()
             return res.data or []
+
         except Exception as e:
             self.logger.error(f"Failed to get fights for event {event_id}: {e}")
             return []
 
-    def recalculate_event_fighters_stats(self, event_id: str) -> None:
-        if not self.url or not self.key:
-            self.logger.warning("Supabase credentials missing.")
-            return
 
+    def recalculate_event_fighters_stats(self, event_id: str) -> None:
         try:
-            client = create_client(self.url, self.key)
-            client.rpc("recalculate_event_fighters_stats", {"p_event_id": event_id}).execute()
+            self.sync_client.rpc("recalculate_event_fighters_stats", {"p_event_id": event_id}).execute()
             self.logger.info(f"Successfully recalculated career stats for all fighters in event: {event_id}")
+
         except Exception as e:
             self.logger.error(f"Failed to recalculate career stats for event {event_id}: {e}")

@@ -5,6 +5,7 @@ from ufc_scraper.services.supabase_manager import SupabaseManager
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+EXTRA_RUNS = 5
 
 def handler(event, context):
 
@@ -69,25 +70,27 @@ def handler(event, context):
 
                 logger.info(f"[TASK:{task_type}] Both live scrapers finished for '{event_id}'.")
 
-                current_status = SupabaseManager().get_event_status(event_id)
+                supabase = SupabaseManager()
 
-                if current_status == "completed":
-                    if completed_runs < 3:
+                if not supabase.has_unfinished_fights(event_id):
+                    if completed_runs < EXTRA_RUNS:
                         next_run = completed_runs + 1
-                        logger.info(f"[TASK:{task_type}] Event {event_id} is COMPLETED, scheduling extra run {next_run}/3.")
+                        logger.info(f"[TASK:{task_type}] All fights of event {event_id} are finished, scheduling extra run {next_run}/{EXTRA_RUNS}.")
                         return {"statusCode": 200, "step_status": "IN_PROGRESS", "completed_runs": next_run}
                     else:
-                        logger.info(f"[TASK:{task_type}] Event {event_id} is COMPLETED and all 3 extra runs are done. Finishing loop.")
+                        logger.info(f"[TASK:{task_type}] All {EXTRA_RUNS} extra runs are done for event {event_id}. Marking event as Completed.")
 
-                        # Recalculate career stats for all fighters once live scraping is 100% complete
+                        if not supabase.mark_event_completed(event_id):
+                            return {"statusCode": 200, "step_status": "IN_PROGRESS", "completed_runs": completed_runs}
+
                         try:
-                            SupabaseManager().recalculate_event_fighters_stats(event_id)
+                            supabase.recalculate_event_fighters_stats(event_id)
                         except Exception as e:
                             logger.error(f"[TASK:{task_type}] Failed to recalculate career stats for event {event_id}: {e}")
 
                         return {"statusCode": 200, "step_status": "COMPLETED", "completed_runs": completed_runs}
                 else:
-                    logger.info(f"[TASK:{task_type}] Event {event_id} is still {current_status.upper()}. Returning IN_PROGRESS.")
+                    logger.info(f"[TASK:{task_type}] Event {event_id} still has unfinished fights. Returning IN_PROGRESS.")
                     return {"statusCode": 200, "step_status": "IN_PROGRESS", "completed_runs": 0}
 
             # Single mode: scrapes a single event page once.
