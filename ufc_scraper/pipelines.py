@@ -11,6 +11,7 @@ class DatabasePipeline:
 
         self.event_buffer = {}
         self.fight_buffer = {}
+        self.cancelled_fight_buffer = {}
         self.fighter_buffer = {}
         self.fighter_update_buffer = {}
         self.participation_buffer = {}
@@ -38,6 +39,12 @@ class DatabasePipeline:
             if fight_id:
                 # Filter out None values to prevent overwriting existing fight details in DB
                 self.fight_buffer[fight_id] = {k: v for k, v in item_data.items() if v is not None}
+
+        elif item_type == "cancelled_fight":
+            fight_id = item_data.get("fight_id")
+            if fight_id:
+                # Keep None values so every field except fight_id, event_id and bout_type is cleared in DB
+                self.cancelled_fight_buffer[fight_id] = item_data
 
         elif item_type == "fighter":
             fighter_id = item_data.get("fighter_id")
@@ -74,6 +81,7 @@ class DatabasePipeline:
         self.logger.info(f"[BATCH START] Processing buffered items: "
                          f"{len(self.event_buffer)} events, "
                          f"{len(self.fight_buffer)} fights, "
+                         f"{len(self.cancelled_fight_buffer)} cancelled fights, "
                          f"{len(self.fighter_buffer)} fighters, "
                          f"{len(self.fighter_update_buffer)} fighter updates, "
                          f"{len(self.participation_buffer)} participations, "
@@ -115,6 +123,13 @@ class DatabasePipeline:
                 list(self.fight_buffer.values())
             )
             self.fight_buffer.clear()
+
+        if self.cancelled_fight_buffer:
+            await self.supabase.bulk_upsert(
+                "fights",
+                list(self.cancelled_fight_buffer.values())
+            )
+            self.cancelled_fight_buffer.clear()
 
         if self.participation_buffer:
             await self.supabase.bulk_upsert(

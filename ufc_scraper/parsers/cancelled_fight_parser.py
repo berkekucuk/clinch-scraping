@@ -28,9 +28,9 @@ def parse_cancelled_fight(cancelled_fight_div, response, event_id: str, is_live_
     if fight_id is None or fighter1_id is None or fighter2_id is None:
         return
 
-    # Yield FightItem
+    # Yield FightItem (all other fields are written as NULL by the pipeline)
     yield FightItem(
-        item_type="fight",
+        item_type="cancelled_fight",
         fight_id=fight_id,
         event_id=event_id,
         bout_type=status_text,

@@ -38,7 +38,7 @@ class SingleJsonPipeline:
         if item_type == "event":
             self.events.append(data)
 
-        elif item_type == "fight":
+        elif item_type in ("fight", "cancelled_fight"):
             # Filter out None fields for clean JSON output
             self.fights.append({k: v for k, v in data.items() if v is not None})
 
