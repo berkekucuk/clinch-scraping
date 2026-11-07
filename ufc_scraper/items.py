@@ -56,6 +56,7 @@ class ParticipantItem:
     fight_id: str  # FK -> FightItem
     fighter_id: str  # FK -> FighterItem
     odds_value: int | None = None
+    raw_odds_value: int | None = None
     odds_label: str | None = None
     result: str | None = None
     record_after_fight: dict | None = None

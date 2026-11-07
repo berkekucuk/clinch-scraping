@@ -132,15 +132,17 @@ def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False
             )
 
     odds_data = odds_data or {}
-    for fighter_data, odds_value, odds_label in [
+    for fighter_data, odds_value, raw_odds_value, odds_label in [
         (
             fighter1_data,
             odds_data.get("fighter1_odds_value"),
+            odds_data.get("fighter1_raw_odds_value"),
             odds_data.get("fighter1_odds_label"),
         ),
         (
             fighter2_data,
             odds_data.get("fighter2_odds_value"),
+            odds_data.get("fighter2_raw_odds_value"),
             odds_data.get("fighter2_odds_label"),
         ),
     ]:
@@ -149,6 +151,7 @@ def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False
             fight_id=fight_id,
             fighter_id=fighter_data.get("fighter_id"),
             odds_value=odds_value,
+            raw_odds_value=raw_odds_value,
             odds_label=odds_label,
             result=fighter_data.get("result"),
             record_after_fight=fighter_data.get("record_after_fight"),
