@@ -10,6 +10,7 @@ class EventItem:
     datetime_utc: str | None = None
     venue: str | None = None
     location: str | None = None
+    poster_url: str | None = None
 
 
 @dataclass

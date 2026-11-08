@@ -27,6 +27,7 @@ def parse_card(response, event_id, event_url, is_live_mode=False):
     datetime_utc = parse_datetime(date_time_str)
     venue = container.xpath(".//span[contains(text(), 'Venue')]/following-sibling::span/text()").get(default="").strip() or None
     location = container.xpath(".//span[contains(text(), 'Location')]/following-sibling::span//text()").get(default="").strip() or None
+    poster_url = response.css("div#primaryDetailsContainer img::attr(src)").get(default="").strip() or None
 
     if not is_live_mode:
         yield EventItem(
@@ -38,6 +39,7 @@ def parse_card(response, event_id, event_url, is_live_mode=False):
             datetime_utc=datetime_utc,
             venue=venue,
             location=location,
+            poster_url=poster_url,
         )
 
     fights = response.css('ul[data-event-view-toggle-target="list"] > li[data-controller="table-row-background"]')
