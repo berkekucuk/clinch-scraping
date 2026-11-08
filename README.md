@@ -1,6 +1,6 @@
 # Clinch Scraping Project
 
-A hobby project that scrapes UFC/MMA data for clinch-app and stores it in Supabase. Built with Scrapy and deployed serverlessly on AWS Lambda.
+A hobby project that scrapes UFC/MMA data for [Clinch](https://github.com/berkekucuk/clinch-app) and stores it in Supabase. Built with Scrapy and deployed serverlessly on AWS Lambda.
 
 ## ⚠️ Ethical Disclaimer
 
@@ -54,8 +54,9 @@ All triggers are fully automated. Scheduled EventBridge cron rules, the Event Da
                                                    │      ▼                 │
                                                    │     Wait ──────────────┘
                                                    ▼
-                                     3 extra runs after completion,
-                                     then career stats recalculation
+                              5 extra runs after all fights finish,
+                              then event marked Completed and
+                              career stats recalculated
                                                    │
                                                    ▼
                                                ✅ Done
@@ -72,9 +73,9 @@ Fetches the upcoming events from the database (up to 4 events) and refreshes the
 Once per day, it scrapes the data provider event list and schedules full-page scrapes only for events not already in the database.
 
 ### 3. Live Mode (`step_function_loop`)
-When a new event is inserted or its `datetime_utc` value changes, Supabase sends a webhook to the Event Date Gatekeeper Lambda. The Lambda starts a Step Functions execution with the `step_function_loop` payload. The state machine waits until the scheduled start time, then invokes Lambda in live mode repeatedly, with a wait between runs, until the event status changes to `completed`.
+When a new event is inserted or its `datetime_utc` value changes, Supabase sends a webhook to the Event Date Gatekeeper Lambda. The Lambda starts a Step Functions execution with the `step_function_loop` payload. The state machine waits until the scheduled start time, then invokes Lambda in live mode repeatedly, with a wait between runs.
 
-Each live run updates the fight card and scrapes live fight statistics. After the event is completed, a few extra runs pick up late corrections and fighter career stats are recalculated.
+Each live run updates the fight card and scrapes live fight statistics. Once every fight has a result, a few extra runs pick up late corrections. The Lambda then marks the event as `Completed` and recalculates fighter career stats.
 
 ### 4. Fighter Detail Mode (`fighter_scrape`)
 Triggered by a **Supabase database webhook** whenever a new fighter row is inserted. Scrapes the fighter's profile page to enrich the record with bio data (nationality, height, weight, etc.).

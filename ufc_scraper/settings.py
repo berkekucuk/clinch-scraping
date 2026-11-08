@@ -36,6 +36,7 @@ ITEM_PIPELINES = {
     'ufc_scraper.pipelines.DatabasePipeline': 100,
     #'ufc_scraper.ranking_json_pipeline.RankingJsonPipeline': 200,
     #"ufc_scraper.stats_json_pipeline.StatsJsonPipeline": 300,
+    #"ufc_scraper.single_json_pipeline.SingleJsonPipeline": 400,
 }
 
 FEED_EXPORT_ENCODING = "utf-8"
