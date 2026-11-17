@@ -4,13 +4,14 @@ from dataclasses import dataclass
 class EventItem:
     item_type: str
     event_id: str  # PK
-    event_url: str
+    event_url: str | None = None
     status: str | None = None
     name: str | None = None
     datetime_utc: str | None = None
     venue: str | None = None
     location: str | None = None
     poster_url: str | None = None
+    ufcstats_id: str | None = None
 
 
 @dataclass
@@ -26,6 +27,7 @@ class FightItem:
     weight_class_id: str | None = None
     rounds_format: str | None = None
     fight_order: str | None = None
+    ufcstats_id: str | None = None
     title_type: str | None = None
     referee: str | None = None
     bonuses: list[str] | None = None

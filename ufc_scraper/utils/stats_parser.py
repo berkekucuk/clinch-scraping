@@ -66,4 +66,7 @@ def is_name_match(name1: str, name2: str, threshold: float = 0.7) -> bool:
         return False
     if n1 == n2 or n1 in n2 or n2 in n1:
         return True
+    # Same words in a different order, e.g. "Meng Bo" vs "Bo Meng"
+    if sorted(normalize_name(w) for w in name1.split()) == sorted(normalize_name(w) for w in name2.split()):
+        return True
     return SequenceMatcher(None, n1, n2).ratio() >= threshold

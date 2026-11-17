@@ -133,6 +133,36 @@ class SupabaseManager:
             return {}
 
 
+    async def get_events_for_matching(self) -> list[dict]:
+        try:
+            response = await self.client.table("events")\
+                .select("event_id, name, datetime_utc, ufcstats_id")\
+                .eq("status", "Upcoming")\
+                .execute()
+            return response.data or []
+
+        except Exception as e:
+            self.logger.error(f"Failed to get events for matching: {e}")
+            return []
+
+
+    async def get_next_event_for_matching(self) -> dict | None:
+        try:
+            response = await self.client.table("events")\
+                .select("event_id, ufcstats_id, fights(fight_id, ufcstats_id, bout_type, participants(fighter_id, fighters(name, ufcstats_id)))")\
+                .in_("status", ["Upcoming", "live"])\
+                .not_.is_("ufcstats_id", "null")\
+                .not_.is_("datetime_utc", "null")\
+                .order("datetime_utc")\
+                .limit(1)\
+                .execute()
+            return response.data[0] if response.data else None
+
+        except Exception as e:
+            self.logger.error(f"Failed to get next event for matching: {e}")
+            return None
+
+
     async def get_live_sliding_fights(self, event_id: str, window_size: int = 3) -> list[dict]:
         try:
             response = await self.client.rpc(

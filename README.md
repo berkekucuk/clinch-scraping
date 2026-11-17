@@ -72,6 +72,8 @@ Fetches the upcoming events from the database (up to 4 events) and refreshes the
 ### 2. Event Scan Mode (`event_scan`)
 Once per day, it scrapes the data provider event list and schedules full-page scrapes only for events not already in the database.
 
+After the scan, upcoming events and then their fights are automatically linked to their stats provider IDs, so live fight statistics can be scraped.
+
 ### 3. Live Mode (`step_function_loop`)
 When a new event is inserted or its `datetime_utc` value changes, Supabase sends a webhook to the Event Date Gatekeeper Lambda. The Lambda starts a Step Functions execution with the `step_function_loop` payload. The state machine waits until the scheduled start time, then invokes Lambda in live mode repeatedly, with a wait between runs.
 

@@ -1,6 +1,7 @@
 import scrapy
 from ..services.supabase_manager import SupabaseManager
 from ..parsers.fight_stats_parser import parse_live_fight_details
+from ..parsers.ufcstats_match_parser import parse_upcoming_events, parse_event_fights
 
 
 class StatsSpider(scrapy.Spider):
@@ -77,5 +78,35 @@ class StatsSpider(scrapy.Spider):
                     }
                 )
 
+        elif self.mode == "match_events":
+            events = await self.supabase.get_events_for_matching()
+            self.logger.info(f"[STATS SPIDER] Matching UFCStats event IDs for {len(events)} upcoming events")
+
+            yield scrapy.Request(
+                url="http://ufcstats.com/statistics/events/upcoming",
+                callback=parse_upcoming_events,
+                meta={"zyte_api": False},
+                cb_kwargs={"supabase_events": events}
+            )
+
+        elif self.mode == "match_fights":
+            event = await self.supabase.get_next_event_for_matching()
+            if not event:
+                self.logger.warning("[STATS SPIDER] No upcoming event with a ufcstats_id to match")
+                return
+
+            fights = event.get("fights") or []
+            if not fights:
+                self.logger.warning(f"[STATS SPIDER] No fights in DB for event_id: {event['event_id']}")
+                return
+
+            self.logger.info(f"[STATS SPIDER] Matching UFCStats fight IDs for next event: {event['event_id']}")
+            yield scrapy.Request(
+                url=f"http://ufcstats.com/event-details/{event['ufcstats_id']}",
+                callback=parse_event_fights,
+                meta={"zyte_api": False},
+                cb_kwargs={"event_id": event["event_id"], "supabase_fights": fights}
+            )
+
         else:
-            self.logger.error(f"[STATS SPIDER] Unsupported mode: {self.mode}. Supported modes: 'live', 'event'")
+            self.logger.error(f"[STATS SPIDER] Unsupported mode: {self.mode}. Supported modes: 'live', 'event', 'match_events', 'match_fights'")

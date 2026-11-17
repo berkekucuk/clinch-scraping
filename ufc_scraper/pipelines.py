@@ -32,7 +32,8 @@ class DatabasePipeline:
         if item_type == "event":
             event_id = item_data.get("event_id")
             if event_id:
-                self.event_buffer[event_id] = item_data
+                # Filter out None values to prevent overwriting existing event details in DB
+                self.event_buffer[event_id] = {k: v for k, v in item_data.items() if v is not None}
 
         elif item_type == "fight":
             fight_id = item_data.get("fight_id")

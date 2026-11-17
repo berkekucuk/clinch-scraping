@@ -5,7 +5,7 @@ from ufc_scraper.services.supabase_manager import SupabaseManager
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-EXTRA_RUNS = 5
+EXTRA_RUNS = 8
 
 def handler(event, context):
 
@@ -36,6 +36,18 @@ def handler(event, context):
                 ], check=True)
 
                 logger.info(f"[TASK:{task_type}] Event scan finished.")
+
+                # Link upcoming events, then their fights, to UFCStats IDs.
+                for match_mode in ("match_events", "match_fights"):
+                    try:
+                        subprocess.run([
+                            "scrapy", "crawl", "stats",
+                            "-a", f"mode={match_mode}",
+                            "--loglevel", "INFO"
+                        ], check=True)
+                    except subprocess.CalledProcessError as e:
+                        logger.error(f"[TASK:{task_type}] UFCStats {match_mode} failed: {e}")
+
                 return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
 
             # Live mode: scrapes a running event repeatedly until it is completed.
