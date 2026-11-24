@@ -54,7 +54,7 @@ All triggers are fully automated. Scheduled EventBridge cron rules, the Event Da
                                                    │      ▼                 │
                                                    │     Wait ──────────────┘
                                                    ▼
-                              5 extra runs after all fights finish,
+                              8 extra runs after all fights finish,
                               then event marked Completed and
                               career stats recalculated
                                                    │
@@ -68,6 +68,8 @@ All triggers are fully automated. Scheduled EventBridge cron rules, the Event Da
 
 ### 1. Upcoming Mode (`upcoming`)
 Fetches the upcoming events from the database (up to 4 events) and refreshes their full card pages to update data.
+
+After the refresh, the odds of the next upcoming event are updated: fight winner odds plus method of victory (KO/TKO, submission, decision) and per-round props.
 
 ### 2. Event Scan Mode (`event_scan`)
 Once per day, it scrapes the data provider event list and schedules full-page scrapes only for events not already in the database.

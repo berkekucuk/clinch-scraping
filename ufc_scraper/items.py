@@ -3,7 +3,7 @@ from dataclasses import dataclass
 @dataclass
 class EventItem:
     item_type: str
-    event_id: str  # PK
+    event_id: str
     event_url: str | None = None
     status: str | None = None
     name: str | None = None
@@ -17,8 +17,8 @@ class EventItem:
 @dataclass
 class FightItem:
     item_type: str
-    fight_id: str  # PK
-    event_id: str | None = None  # FK -> EventItem
+    fight_id: str
+    event_id: str | None = None
     method_type: str | None = None
     method_detail: str | None = None
     round_summary: str | None = None
@@ -56,8 +56,8 @@ class FighterItem:
 @dataclass
 class ParticipantItem:
     item_type: str
-    fight_id: str  # FK -> FightItem
-    fighter_id: str  # FK -> FighterItem
+    fight_id: str
+    fighter_id: str
     odds_value: int | None = None
     raw_odds_value: int | None = None
     odds_label: str | None = None
@@ -73,6 +73,17 @@ class RankingItem:
     fighter_id: str
     rank_number: int
     rank_change: int | None = None
+
+
+@dataclass
+class FightOddsItem:
+    item_type: str
+    fight_id: str
+    fighter_id: str
+    method: str
+    round: int
+    odds_value: int
+    sportsbook: str
 
 
 @dataclass

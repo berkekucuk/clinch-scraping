@@ -146,12 +146,11 @@ class SupabaseManager:
             return []
 
 
-    async def get_next_event_for_matching(self) -> dict | None:
+    async def get_next_event(self) -> dict | None:
         try:
             response = await self.client.table("events")\
-                .select("event_id, ufcstats_id, fights(fight_id, ufcstats_id, bout_type, participants(fighter_id, fighters(name, ufcstats_id)))")\
-                .in_("status", ["Upcoming", "live"])\
-                .not_.is_("ufcstats_id", "null")\
+                .select("event_id, name, datetime_utc, ufcstats_id, fights(fight_id, ufcstats_id, bout_type, participants(fighter_id, fighters(name, ufcstats_id)))")\
+                .eq("status", "Upcoming")\
                 .not_.is_("datetime_utc", "null")\
                 .order("datetime_utc")\
                 .limit(1)\
@@ -159,7 +158,7 @@ class SupabaseManager:
             return response.data[0] if response.data else None
 
         except Exception as e:
-            self.logger.error(f"Failed to get next event for matching: {e}")
+            self.logger.error(f"Failed to get next event: {e}")
             return None
 
 

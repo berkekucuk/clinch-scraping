@@ -15,6 +15,7 @@ class DatabasePipeline:
         self.fighter_buffer = {}
         self.fighter_update_buffer = {}
         self.participation_buffer = {}
+        self.fight_odds_buffer = {}
         self.ranking_buffer = {}
         self.fight_stat_buffer = {}
 
@@ -65,6 +66,11 @@ class DatabasePipeline:
             if fight_id and fighter_id:
                 self.participation_buffer[(fight_id, fighter_id)] = item_data
 
+        elif item_type == "fight_odds":
+            key = (item_data.get("fight_id"), item_data.get("fighter_id"), item_data.get("method"), item_data.get("round"))
+            if all(k is not None for k in key):
+                self.fight_odds_buffer[key] = item_data
+
         elif item_type == "ranking":
             key = (item_data.get("weight_class_id"), item_data.get("rank_number"))
             if key[0] and key[1] is not None:
@@ -86,6 +92,7 @@ class DatabasePipeline:
                          f"{len(self.fighter_buffer)} fighters, "
                          f"{len(self.fighter_update_buffer)} fighter updates, "
                          f"{len(self.participation_buffer)} participations, "
+                         f"{len(self.fight_odds_buffer)} fight odds, "
                          f"{len(self.ranking_buffer)} rankings, "
                          f"{len(self.fight_stat_buffer)} fight stats")
 
@@ -139,6 +146,14 @@ class DatabasePipeline:
                 on_conflict="fight_id, fighter_id"
             )
             self.participation_buffer.clear()
+
+        if self.fight_odds_buffer:
+            await self.supabase.bulk_upsert(
+                "fight_odds",
+                list(self.fight_odds_buffer.values()),
+                on_conflict="fight_id, fighter_id, method, round"
+            )
+            self.fight_odds_buffer.clear()
 
         if self.ranking_buffer:
             await self.supabase.bulk_upsert(
