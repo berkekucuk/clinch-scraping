@@ -54,7 +54,7 @@ All triggers are fully automated. Scheduled EventBridge cron rules, the Event Da
                                                    │      ▼                 │
                                                    │     Wait ──────────────┘
                                                    ▼
-                              5 extra runs after all fights finish,
+                              8 extra runs after all fights finish,
                               then event marked Completed and
                               career stats recalculated
                                                    │
