@@ -90,9 +90,13 @@ class StatsSpider(scrapy.Spider):
             )
 
         elif self.mode == "match_fights":
-            event = await self.supabase.get_next_event_for_matching()
+            event = await self.supabase.get_next_event()
             if not event:
-                self.logger.warning("[STATS SPIDER] No upcoming event with a ufcstats_id to match")
+                self.logger.warning("[STATS SPIDER] No upcoming event to match")
+                return
+
+            if not event.get("ufcstats_id"):
+                self.logger.warning(f"[STATS SPIDER] Next event {event['event_id']} has no ufcstats_id yet")
                 return
 
             fights = event.get("fights") or []

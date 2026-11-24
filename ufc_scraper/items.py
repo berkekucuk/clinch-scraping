@@ -76,6 +76,17 @@ class RankingItem:
 
 
 @dataclass
+class FightOddsItem:
+    item_type: str
+    fight_id: str
+    fighter_id: str
+    method: str
+    round: int
+    odds_value: int
+    sportsbook: str
+
+
+@dataclass
 class FightStatItem:
     item_type: str
     ufcstats_fight_id: str
