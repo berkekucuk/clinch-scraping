@@ -24,6 +24,15 @@ def handler(event, context):
                     ], check=True)
 
                 logger.info(f"[TASK:{task_type}] Scraper finished.")
+
+                # Odds for the next upcoming event
+                try:
+                    subprocess.run([
+                        "scrapy", "crawl", "odds",
+                        "--loglevel", "INFO"
+                    ], check=True)
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"[TASK:{task_type}] Odds scraper failed: {e}")
                 return {"statusCode": 200, "body": f"Scheduled task '{task_type}' completed"}
 
             # Scans the event list page for new events not yet in the database.
