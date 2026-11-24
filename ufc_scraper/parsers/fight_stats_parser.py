@@ -1,5 +1,4 @@
 import logging
-
 from ..items import FightItem, FightStatItem, FighterItem
 from ..utils.stats_parser import (
     is_name_match,
@@ -11,18 +10,18 @@ from ..utils.stats_parser import (
 logger = logging.getLogger(__name__)
 
 
-# ==========================================
-# 1. Fighter & Fight Metadata Extractors
-# ==========================================
-
 def build_fighter_id_map(response, supabase_fight: dict) -> tuple[dict[str, str], list[FighterItem]]:
-    """Maps UFCStats ufcstats_fighter_id to Supabase fighter_id using Scrapy CSS selectors and name matching.
-    Also returns FighterItem updates for fighters whose ufcstats_id was missing in database."""
+    """
+    Maps UFCStats fighter IDs to Supabase fighter IDs for a fight.
+
+    Fighters with a stored ufcstats_id are matched by ID, the rest by name. Also returns
+    FighterItem updates for fighters whose ufcstats_id was missing in the database.
+    """
     participants = supabase_fight.get("participants", [])
     ufcstats_to_fighter_id_map: dict[str, str] = {}
     fighter_updates: list[FighterItem] = []
 
-    # 1. Primary: Direct ufcstats_id match from database
+    # Fighters whose ufcstats_id is already stored in the database
     for participant in participants:
         fighter_info = participant.get("fighters") or {}
         fighter_id = participant.get("fighter_id")
@@ -30,7 +29,7 @@ def build_fighter_id_map(response, supabase_fight: dict) -> tuple[dict[str, str]
         if ufcstats_fighter_id and fighter_id:
             ufcstats_to_fighter_id_map[ufcstats_fighter_id] = fighter_id
 
-    # 2. Fallback: Fuzzy name-based matching from top page person cards
+    # Remaining fighters are matched by name
     for person in response.css("div.b-fight-details__person"):
         href = person.css("a.b-link::attr(href)").get()
         if not href:
@@ -50,7 +49,7 @@ def build_fighter_id_map(response, supabase_fight: dict) -> tuple[dict[str, str]
             if is_name_match(web_name, db_name):
                 ufcstats_to_fighter_id_map[ufcstats_id] = fighter_id
 
-                # If fighter does not have ufcstats_id in DB, queue an automatic update
+                # Save the discovered ufcstats_id, so later matches use the ID
                 if not existing_ufcstats_id and fighter_id:
                     logger.info(
                         f"[FIGHTER SYNC] Discovered ufcstats_id '{ufcstats_id}' for fighter '{db_name}' ({fighter_id}). "
@@ -69,10 +68,10 @@ def build_fighter_id_map(response, supabase_fight: dict) -> tuple[dict[str, str]
 
 
 def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
-    """Extracts title_type, referee and bonuses into a FightItem using CSS selectors."""
+    """Extracts the referee and bonuses into a FightItem."""
     bonuses = []
 
-    # 1. Fight Title, Title Belt, and Bonuses
+    # Bonuses are shown as icons next to the fight title
     title_tag = response.css("i.b-fight-details__fight-title")
     if title_tag:
         img_srcs = [s.lower() for s in title_tag.css("img::attr(src)").getall()]
@@ -86,7 +85,6 @@ def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
             elif "ko.png" in src:
                 bonuses.append("KO")
 
-    # 2. Referee
     ref_text = response.xpath("//i[contains(text(), 'Referee:')]/following-sibling::span/text()").get()
     referee = ref_text.strip() if ref_text and ref_text.strip() else None
 
@@ -97,10 +95,6 @@ def extract_fight_metadata_item(response, fight_id: str) -> FightItem:
         bonuses=bonuses if bonuses else None
     )
 
-
-# ==========================================
-# 2. Fight Statistics Tables Extractors
-# ==========================================
 
 def _get_col_pair_texts(cols, col_idx: int) -> tuple[str, str]:
     """Extracts the pair of text values from two <p> tags in a table column."""
@@ -120,7 +114,7 @@ def process_totals_row(
     fight_id: str,
     ufcstats_to_fighter_id_map: dict[str, str],
 ) -> None:
-    """Parses Totals table row (knockdowns, strikes, takedowns, submissions, control time)."""
+    """Parses a Totals table row (knockdowns, strikes, takedowns, submissions, control time)."""
     cols = row.css("td")
     if len(cols) < 10:
         return
@@ -171,7 +165,7 @@ def process_sig_strikes_row(
     fight_id: str,
     ufcstats_to_fighter_id_map: dict[str, str],
 ) -> None:
-    """Parses Significant Strikes table row (head, body, leg, distance, clinch, ground)."""
+    """Parses a Significant Strikes table row (head, body, leg, distance, clinch, ground)."""
     cols = row.css("td")
     if len(cols) < 9:
         return
@@ -218,7 +212,7 @@ def extract_fight_stat_items(
     fight_id: str,
     ufcstats_to_fighter_id_map: dict[str, str]
 ) -> list[FightStatItem]:
-    """Extracts all Totals and Significant Strikes tables using Scrapy CSS selectors."""
+    """Extracts the Totals and Significant Strikes tables into FightStatItems."""
     stats_map: dict[tuple[str, int], FightStatItem] = {}
 
     for table in response.css("table"):
@@ -245,10 +239,6 @@ def extract_fight_stat_items(
     return [stat for stat in stats_map.values() if stat.fighter_id]
 
 
-# ==========================================
-# 3. Main Callback Orchestrator
-# ==========================================
-
 def parse_live_fight_details(
     response,
     fight_id: str,
@@ -256,22 +246,21 @@ def parse_live_fight_details(
     supabase_fight: dict
 ):
     """
-    Parses live fight statistics and metadata (title_type, referee, bonuses)
-    from UFCStats fight details page using native Scrapy CSS selectors.
+    Parses a UFCStats fight details page.
+
+    Yields fighter ufcstats_id updates, per-round fight statistics and fight metadata
+    (referee, bonuses).
     """
     logger.info(f"[LIVE FIGHT PARSER] Parsing fight details: {response.url} (Fight ID: {fight_id})")
 
-    # 1. Build Fighter ID Mapping & discover missing ufcstats_ids
     ufcstats_to_fighter_id_map, fighter_updates = build_fighter_id_map(response, supabase_fight)
     for update_item in fighter_updates:
         yield update_item
 
-    # 2. Extract Fight Statistics Tables (Totals & Significant Strikes)
     stat_items = extract_fight_stat_items(response, ufcstats_fight_id, fight_id, ufcstats_to_fighter_id_map)
     for stat_item in stat_items:
         yield stat_item
 
     logger.info(f"[LIVE FIGHT PARSER] Extracted {len(stat_items)} stat rows for Fight ID: {fight_id}")
 
-    # 3. Extract Fight Metadata (title_type, referee, bonuses)
     yield extract_fight_metadata_item(response, fight_id)
