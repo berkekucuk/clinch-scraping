@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 METHOD_NAMES = {"TKO/KO": "KO/TKO", "submission": "SUB", "decision": "DEC"}
 PROP_PATTERN = re.compile(r"wins by (TKO/KO|submission|decision)(?: in round (\d))?$")
 
-# Sportsbooks that publish the full market, in order of preference
-MONEYLINE_BOOKS = ("FanDuel", "BetWay", "Unibet", "BetRivers", "Caesars")
-METHOD_MARKET_BOOKS = ("FanDuel", "BetWay", "Unibet", "BetRivers")
-ROUND_MARKET_BOOKS = ("FanDuel", "Unibet", "BetRivers")
+SPORTSBOOKS = ("FanDuel", "Unibet", "BetRivers", "BetWay", "Caesars")
 
 
 def _moneyline_keys(book_odds: dict) -> list[tuple]:
@@ -91,16 +88,36 @@ def _parse_fights(table) -> list[dict]:
     return fights
 
 
-def _pick_market(fight: dict, book_ids: dict[str, str], priority: tuple, keys_fn) -> tuple | None:
-    """Returns (book, keys, odds) from the first sportsbook that offers every outcome of the market."""
-    for book in priority:
-        book_odds = fight["props"].get(book_ids.get(book), {})
+def _complete_markets(book_odds: dict) -> dict[str, list[tuple]]:
+    """Returns the keys of each market the sportsbook offers with every outcome."""
+    markets = {}
+    for name, keys_fn in (("moneyline", _moneyline_keys), ("method", _method_market_keys), ("round", _round_market_keys)):
         keys = keys_fn(book_odds)
-
         if all(key in book_odds for key in keys):
-            return book, keys, [book_odds[key] for key in keys]
+            markets[name] = keys
+    return markets
 
-    return None
+
+def _pick_sportsbook(fight: dict, book_ids: dict[str, str]) -> tuple[str, dict, dict] | None:
+    """
+    Picks the single sportsbook to take all odds of the fight from.
+
+    A sportsbook with the moneyline is preferred, then the one with the most complete prop markets.
+    Ties are broken by SPORTSBOOKS order. Returns (book, its odds, its complete markets) or None.
+    """
+    best, best_score = None, None
+
+    for book in SPORTSBOOKS:
+        book_odds = fight["props"].get(book_ids.get(book), {})
+        markets = _complete_markets(book_odds)
+        if not markets:
+            continue
+
+        score = ("moneyline" in markets, len(markets))
+        if best_score is None or score > best_score:
+            best, best_score = (book, book_odds, markets), score
+
+    return best
 
 
 def _parse_header_date(text: str | None, reference: date) -> date | None:
@@ -178,33 +195,27 @@ def parse_event_odds(response, event: dict):
         fight, sides = matched
         candidate_fights.remove(fight)
 
-        moneyline = _pick_market(bfo_fight, book_ids, MONEYLINE_BOOKS, _moneyline_keys)
-        method_market = _pick_market(bfo_fight, book_ids, METHOD_MARKET_BOOKS, _method_market_keys)
-        round_market = _pick_market(bfo_fight, book_ids, ROUND_MARKET_BOOKS, _round_market_keys)
-
-        if not moneyline:
+        picked = _pick_sportsbook(bfo_fight, book_ids)
+        if not picked:
             logger.info(f"[ODDS PARSER] No odds yet for '{fight_label}'")
-        elif not (method_market or round_market):
-            logger.info(f"[ODDS PARSER] No method/round props yet for '{fight_label}', moneyline only")
+            continue
 
-        for market in (moneyline, method_market, round_market):
-            if not market:
-                continue
+        book, book_odds, markets = picked
+        if markets.keys() == {"moneyline"}:
+            logger.info(f"[ODDS PARSER] No method/round props yet for '{fight_label}', moneyline only ({book})")
 
-            book, keys, odds = market
-            for (side, method, round_number), odds_value in zip(keys, odds):
-                # Decision comes from the method market; skip the round market's copy
-                if market is round_market and method == "DEC" and method_market:
-                    continue
+        # Decision is part of both the method and the round market, so keys are deduplicated
+        keys = dict.fromkeys(key for market_keys in markets.values() for key in market_keys)
 
-                yield FightOddsItem(
-                    item_type="fight_odds",
-                    fight_id=fight["fight_id"],
-                    fighter_id=sides[side - 1]["fighter_id"],
-                    method=method,
-                    round=round_number,
-                    odds_value=odds_value,
-                    sportsbook=book,
-                )
+        for side, method, round_number in keys:
+            yield FightOddsItem(
+                item_type="fight_odds",
+                fight_id=fight["fight_id"],
+                fighter_id=sides[side - 1]["fighter_id"],
+                method=method,
+                round=round_number,
+                odds_value=book_odds[(side, method, round_number)],
+                sportsbook=book,
+            )
 
     log_unmatched_fights("[ODDS PARSER]", "BestFightOdds", event["event_id"], candidate_fights)
