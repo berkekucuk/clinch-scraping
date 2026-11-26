@@ -1,4 +1,5 @@
 import scrapy
+from twisted.python.failure import Failure
 from ..services.supabase_manager import SupabaseManager
 from ..parsers.bfo_odds_parser import parse_event_odds
 
@@ -26,5 +27,7 @@ class OddsSpider(scrapy.Spider):
             cb_kwargs={"event": event},
         )
 
-    def on_error(self, failure):
-        self.logger.error(f"[ODDS SPIDER] Request failed for {failure.request.url}: {failure.value!r}")
+    def on_error(self, failure: Failure) -> None:
+        request = getattr(failure, "request", None)
+        url = request.url if request else "unknown URL"
+        self.logger.error(f"[ODDS SPIDER] Request failed for {url}: {failure.value!r}")

@@ -111,25 +111,19 @@ class SupabaseManager:
             return False
 
 
-    async def load_fighter_cache(self):
-        fighter_cache = {}
+    async def get_fighter_ids_by_ufc_slugs(self, ufc_slugs: list[str]) -> dict[str, str]:
+        if not ufc_slugs:
+            return {}
 
         try:
-            self.logger.info("Loading fighter cache...")
-
-            response = await self.client.table('fighters')\
-                .select('fighter_id, name')\
+            response = await self.client.table("fighters")\
+                .select("fighter_id, ufc_slug")\
+                .in_("ufc_slug", ufc_slugs)\
                 .execute()
-
-            for f in response.data:
-                if f.get('name'):
-                    fighter_cache[f['name'].strip()] = f['fighter_id']
-
-            self.logger.info(f"Successfully loaded {len(fighter_cache)} fighters into cache.")
-            return fighter_cache
+            return {f["ufc_slug"]: f["fighter_id"] for f in response.data}
 
         except Exception as e:
-            self.logger.error(f"Failed to load fighter cache: {e}")
+            self.logger.error(f"Failed to get fighters by ufc_slug: {e}")
             return {}
 
 

@@ -1,5 +1,5 @@
 import logging
-from ..utils.ranking_mappings import WEIGHT_CLASS_MAPPING, NAME_EXCEPTIONS
+from ..utils.ranking_mappings import WEIGHT_CLASS_MAPPING
 from ..items import RankingItem
 
 logger = logging.getLogger(__name__)
@@ -7,19 +7,35 @@ logger = logging.getLogger(__name__)
 P4P_TITLES = ("Men's Pound-for-Pound", "Women's Pound-for-Pound")
 
 
-def parse_rankings(response, fighter_cache):
+def _get_ranking_groups(response) -> list:
+    """Pound-for-pound groups from the media rankings, division groups from the meta rankings."""
     media_groups = response.css('.block-views-blockathlete-rankings-block-1 .view-grouping')
     meta_groups = response.css('.block-views-blockathlete-rankings-meta-rankings .view-grouping')
 
     if not meta_groups:
         logger.error("Meta rankings block not found on rankings page")
 
-    for group in media_groups:
-        if _get_group_title(group) in P4P_TITLES:
-            yield from _parse_group(group, fighter_cache)
+    return [g for g in media_groups if _get_group_title(g) in P4P_TITLES] + list(meta_groups)
 
-    for group in meta_groups:
-        yield from _parse_group(group, fighter_cache)
+
+def extract_ufc_slugs(response) -> list[str]:
+    """Returns the UFC.com slugs of every ranked fighter on the page."""
+    slugs = {
+        _get_ufc_slug(href)
+        for group in _get_ranking_groups(response)
+        for href in group.css('.info h5 a::attr(href), .views-field-title a::attr(href)').getall()
+    }
+    return sorted(slug for slug in slugs if slug)
+
+
+def parse_rankings(response, fighter_ids: dict[str, str]):
+    """Yields a RankingItem for each ranked fighter. fighter_ids maps ufc_slug to fighter_id."""
+    for group in _get_ranking_groups(response):
+        yield from _parse_group(group, fighter_ids)
+
+
+def _get_ufc_slug(href: str | None) -> str | None:
+    return href.rstrip("/").split("/")[-1] if href and "/athlete/" in href else None
 
 
 def _get_group_title(group):
@@ -27,7 +43,7 @@ def _get_group_title(group):
     return raw_title.strip() if raw_title else None
 
 
-def _parse_group(group, fighter_cache):
+def _parse_group(group, fighter_ids):
     title = _get_group_title(group)
     if not title:
         return
@@ -38,9 +54,9 @@ def _parse_group(group, fighter_cache):
         logger.warning(f"Weight class not matched: {title}")
         return
 
-    champion_name = group.css('.info h5 a::text').get()
-    if champion_name:
-        item = _process_fighter(champion_name, db_weight_class_id, 0, 0, fighter_cache)
+    champion_link = group.css('.info h5 a')
+    if champion_link:
+        item = _process_fighter(champion_link[0], db_weight_class_id, 0, 0, fighter_ids)
         if item:
             yield item
 
@@ -48,7 +64,7 @@ def _parse_group(group, fighter_cache):
     current_rank = 1
 
     for row in rows:
-        fighter_name = row.css('.views-field-title a::text').get()
+        fighter_link = row.css('.views-field-title a')
 
         rank_change = 0
         rank_change_td = row.css('.views-field-meta-weight-class-rank-change, .views-field-weight-class-rank-change')
@@ -69,21 +85,20 @@ def _parse_group(group, fighter_cache):
                 except ValueError:
                     pass
 
-        if fighter_name:
-            item = _process_fighter(fighter_name, db_weight_class_id, current_rank, rank_change, fighter_cache)
+        if fighter_link:
+            item = _process_fighter(fighter_link[0], db_weight_class_id, current_rank, rank_change, fighter_ids)
             if item:
                 yield item
             current_rank += 1
 
 
-def _process_fighter(fighter_name, weight_class_id, rank, rank_change, fighter_cache):
+def _process_fighter(fighter_link, weight_class_id, rank, rank_change, fighter_ids):
     if rank == 0 and weight_class_id in ["mens_p4p", "womens_p4p"]:
         return None
 
-    fighter_name = fighter_name.strip()
-
-    search_name = NAME_EXCEPTIONS.get(fighter_name, fighter_name)
-    found_id = fighter_cache.get(search_name)
+    fighter_name = fighter_link.css('::text').get(default="").strip()
+    ufc_slug = _get_ufc_slug(fighter_link.attrib.get("href"))
+    found_id = fighter_ids.get(ufc_slug)
 
     if found_id:
         return RankingItem(
@@ -94,5 +109,5 @@ def _process_fighter(fighter_name, weight_class_id, rank, rank_change, fighter_c
             rank_change=rank_change,
         )
     else:
-        logger.error(f"Fighter not found in DB: {fighter_name}")
+        logger.error(f"Fighter not found in DB: {fighter_name} (ufc_slug: {ufc_slug})")
         return None
