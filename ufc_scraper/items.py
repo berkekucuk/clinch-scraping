@@ -58,9 +58,6 @@ class ParticipantItem:
     item_type: str
     fight_id: str
     fighter_id: str
-    odds_value: int | None = None
-    raw_odds_value: int | None = None
-    odds_label: str | None = None
     result: str | None = None
     record_after_fight: dict | None = None
     is_red_corner: bool | None = None

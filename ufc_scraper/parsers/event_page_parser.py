@@ -1,7 +1,6 @@
 import logging
 from .cancelled_fight_parser import parse_cancelled_fight
 from ..items import EventItem, FightItem, FighterItem, ParticipantItem
-from ..utils.odds_parser import parse_odds
 from ..utils.fighter_div_parser import parse_fighter_div
 from ..utils.url_parser import extract_fight_id
 from ..utils.method_parser import split_method
@@ -103,10 +102,6 @@ def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False
     rounds_format = box_div.xpath("./div[2]/text()").get(default="").strip() or None
     fight_order = bout_details_button_div.xpath(".//span[2]/text()").get(default="").strip() or str(auto_index)
 
-    ### Odds data ###
-    bout_details_div = web_view.xpath("./div[@data-event-bout-details-target='content']")
-    odds_data = parse_odds(bout_details_div)
-
     ### yield items ###
     yield FightItem(
         item_type="fight",
@@ -133,28 +128,11 @@ def parse_single_fight(fight, response, event_id, auto_index, is_live_mode=False
                 image_url=fighter_data.get("image_url"),
             )
 
-    odds_data = odds_data or {}
-    for fighter_data, odds_value, raw_odds_value, odds_label in [
-        (
-            fighter1_data,
-            odds_data.get("fighter1_odds_value"),
-            odds_data.get("fighter1_raw_odds_value"),
-            odds_data.get("fighter1_odds_label"),
-        ),
-        (
-            fighter2_data,
-            odds_data.get("fighter2_odds_value"),
-            odds_data.get("fighter2_raw_odds_value"),
-            odds_data.get("fighter2_odds_label"),
-        ),
-    ]:
+    for fighter_data in [fighter1_data, fighter2_data]:
         yield ParticipantItem(
             item_type="participation",
             fight_id=fight_id,
             fighter_id=fighter_data.get("fighter_id"),
-            odds_value=odds_value,
-            raw_odds_value=raw_odds_value,
-            odds_label=odds_label,
             result=fighter_data.get("result"),
             record_after_fight=fighter_data.get("record_after_fight"),
             is_red_corner=fighter_data.get("is_red_corner"),
